@@ -227,7 +227,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
                       </div>
                     </div>
                     <div className="space-y-1 text-xs">
-                      {c.email && <div className="flex items-center justify-between"><span className="text-gray-300">📧 {c.email}</span><button onClick={() => copy(c.email, `e${i}`)} className="px-1.5 py-0.5 rounded" style={{ background: copied === `e${i}` ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.07)", color: copied === `e${i}` ? "#10b981" : "#6b7280" }}>{copied === `e${i}` ? "✓" : "⎘"}</button></div>}
+                      {c.email && <div className="flex items-center justify-between"><span className="text-gray-300">📧 {c.email}</span><button onClick={() => copy(c.email, "e" + i)} className="px-1.5 py-0.5 rounded" style={{ background: copied === "e" + i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.07)", color: copied === "e" + i ? "#10b981" : "#6b7280" }}>{copied === "e" + i ? "✓" : "⎘"}</button></div>}
                       {c.twitter && c.twitter !== "Unknown" && <p className="text-blue-400">🐦 {c.twitter}</p>}
                       {c.telegram && c.telegram !== "Unknown" && <p className="text-sky-400">💬 {c.telegram}</p>}
                       {c.linkedin && c.linkedin !== "Unknown" && <p className="text-blue-300 truncate">💼 {c.linkedin}</p>}
@@ -404,7 +404,10 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
 
       const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
       let parsed = SAFE_JSON(txt);
-      const emails = (parsed && parsed.bdEmail && parsed.bdEmail !== "Unknown") ? [parsed.bdEmail] : [];
+      if (!parsed) {
+        parsed = { projectName: h, symbol: h.toUpperCase().slice(0,6), emoji: "🛸", tagline: "Crypto project @" + h, description: "Visit their website for more details.", category: "Crypto", stage: "Unknown", chain: "Unknown", website: "", twitter: "@" + h, telegram: "Unknown", bdEmail: "Unknown", bdTelegram: "Unknown", bestContactPath: "Twitter DM: @" + h, outreachStrategy: "", bdScore: 50, dataQuality: "Low", contacts: [], tags: [] };
+      }
+      const emails = (parsed.bdEmail && parsed.bdEmail !== "Unknown") ? [parsed.bdEmail] : [];
 
       setResult(parsed);
       setHistory(prev => [{ handle: h, result: parsed, ts: new Date() }, ...prev].slice(0, 10));
@@ -497,7 +500,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       {phase === "loading" && (
         <div className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,106,0,0.15)" }}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+            <div className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: (i * 0.15) + "s" }} />)}</div>
             <span className="text-orange-400 font-medium text-sm">Scouting <span className="text-white">@{h}</span></span>
             <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa" }}>{(stream.match(/🔍/g) || []).length} searches</span>
           </div>
@@ -510,7 +513,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
           <div className="grid grid-cols-5 gap-2">
             {SCOUT_STEPS.map((s, i) => {
               const n = (stream.match(/🔍/g) || []).length; const done = n > i * 1.4;
-              return <div key={i} className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl" style={{ background: done ? "rgba(255,106,0,0.1)" : "rgba(255,255,255,0.02)", border: `1px solid ${done ? "rgba(255,106,0,0.28)" : "rgba(255,255,255,0.06)"}` }}><span className="text-lg">{done ? "✅" : s.icon}</span><p className="text-xs text-center" style={{ color: done ? "#ff6a00" : "#374151" }}>{s.label}</p></div>;
+              return <div key={i} className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl" style={{ background: done ? "rgba(255,106,0,0.1)" : "rgba(255,255,255,0.02)", border: "1px solid " + (done ? "rgba(255,106,0,0.28)" : "rgba(255,255,255,0.06)") }}><span className="text-lg">{done ? "✅" : s.icon}</span><p className="text-xs text-center" style={{ color: done ? "#ff6a00" : "#374151" }}>{s.label}</p></div>;
             })}
           </div>
         </div>
@@ -532,7 +535,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
                 <p className="text-gray-400 text-sm leading-relaxed">{result.description}</p>
               </div>
               <div className="text-center flex-shrink-0">
-                <div className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center" style={{ background: `rgba(${(result.bdScore || 50) >= 80 ? "16,185,129" : (result.bdScore || 50) >= 60 ? "245,158,11" : "239,68,68"},0.12)` }}>
+                <div className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center" style={{ background: "rgba(" + ((result.bdScore || 50) >= 80 ? "16,185,129" : (result.bdScore || 50) >= 60 ? "245,158,11" : "239,68,68") + ",0.12)" }}>
                   <p className="font-bold text-xl leading-none" style={{ color: BD(result.bdScore || 50), fontFamily: "'Space Grotesk',sans-serif" }}>{result.bdScore || "—"}</p>
                   <p className="text-xs mt-0.5" style={{ color: BD(result.bdScore || 50) }}>BD</p>
                 </div>
@@ -567,7 +570,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
               <p className="text-white font-semibold text-sm">📬 Contact Intelligence</p>
               {result.dataQuality && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.dataQuality] && CONF[result.dataQuality].bg, color: CONF[result.dataQuality] && CONF[result.dataQuality].c }}>{result.dataQuality === "High" ? "✅" : "⚠️"} {result.dataQuality} Quality</span>}
             </div>
-            <div className="rounded-xl p-4 mb-4 flex items-start gap-3" style={{ background: result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.07)" : "rgba(245,158,11,0.07)", border: `1px solid ${result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.22)" : "rgba(245,158,11,0.22)"}` }}>
+            <div className="rounded-xl p-4 mb-4 flex items-start gap-3" style={{ background: result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.07)" : "rgba(245,158,11,0.07)", border: "1px solid " + (result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.22)" : "rgba(245,158,11,0.22)") }}>
               <span className="text-2xl mt-0.5">{result._emails && result._emails.length > 0 ? "✅" : "💡"}</span>
               <div className="flex-1"><p className="font-bold text-sm mb-1" style={{ color: result._emails && result._emails.length > 0 ? "#10b981" : "#f59e0b" }}>Best Contact Path</p><p className="text-white text-sm font-medium">{result.bestContactPath}</p></div>
             </div>
@@ -578,7 +581,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
                   {result._emails.map((email, i) => (
                     <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
                       <span className="text-emerald-300 font-mono text-sm font-bold">{email}</span>
-                      <button onClick={() => copy(email, `de${i}`)} className="text-xs px-2 py-0.5 rounded" style={{ background: copied === `de${i}` ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)", color: copied === `de${i}` ? "#10b981" : "#9ca3af" }}>{copied === `de${i}` ? "✓" : "Copy"}</button>
+                      <button onClick={() => copy(email, "de" + i)} className="text-xs px-2 py-0.5 rounded" style={{ background: copied === "de" + i ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)", color: copied === "de" + i ? "#10b981" : "#9ca3af" }}>{copied === "de" + i ? "✓" : "Copy"}</button>
                     </div>
                   ))}
                 </div>
@@ -601,9 +604,9 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
                     </div>
                   </div>
                   <div className="space-y-1.5 text-xs">
-                    {c.email && c.email !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-gray-300 truncate">📧 {c.email}</span><button onClick={() => copy(c.email, `ce${i}`)} className="px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: copied === `ce${i}` ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === `ce${i}` ? "#10b981" : "#6b7280" }}>{copied === `ce${i}` ? "✓" : "⎘"}</button></div>}
+                    {c.email && c.email !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-gray-300 truncate">📧 {c.email}</span><button onClick={() => copy(c.email, "ce" + i)} className="px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: copied === "ce" + i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === "ce" + i ? "#10b981" : "#6b7280" }}>{copied === "ce" + i ? "✓" : "⎘"}</button></div>}
                     {!c.email && <p className="text-amber-700 italic">No email — use path above</p>}
-                    {c.twitter && c.twitter !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-blue-400">🐦 {c.twitter}</span><button onClick={() => copy(c.twitter, `ct${i}`)} className="px-1.5 py-0.5 rounded" style={{ background: copied === `ct${i}` ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === `ct${i}` ? "#10b981" : "#6b7280" }}>{copied === `ct${i}` ? "✓" : "⎘"}</button></div>}
+                    {c.twitter && c.twitter !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-blue-400">🐦 {c.twitter}</span><button onClick={() => copy(c.twitter, "ct" + i)} className="px-1.5 py-0.5 rounded" style={{ background: copied === "ct" + i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === "ct" + i ? "#10b981" : "#6b7280" }}>{copied === "ct" + i ? "✓" : "⎘"}</button></div>}
                     {c.telegram && c.telegram !== "Unknown" && <p className="text-sky-400">💬 {c.telegram}</p>}
                     {c.linkedin && c.linkedin !== "Unknown" && <p className="text-blue-300 truncate">💼 {c.linkedin}</p>}
                     {c.source && <p className="text-gray-700">📌 {c.source}</p>}
@@ -667,6 +670,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       {phase === "error" && (
         <div className="rounded-2xl p-8 text-center" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
           <p className="text-red-400 font-semibold mb-2">Scout failed</p>
+          {stream && <pre className="text-gray-500 text-xs mb-4 text-left bg-black rounded-lg p-3 max-h-40 overflow-y-auto">{stream}</pre>}
           <p className="text-gray-500 text-sm mb-4">Check the handle and try again.</p>
           <button onClick={() => { setPhase("idle"); setResult(null); }} className="px-5 py-2 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.12)", color: "#f87171" }}>← Try Again</button>
         </div>
@@ -985,7 +989,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                 { id: "gainers",  label: "📈 Gainers", desc: "Top 24h movers" },
               ].map(t => (
                 <button key={t.id} onClick={() => setDexTab(t.id)} className="flex flex-col px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: dexTab === t.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)", color: dexTab === t.id ? "#a5b4fc" : "#6b7280", border: `1px solid ${dexTab === t.id ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.08)"}` }}>
+                  style={{ background: dexTab === t.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)", color: dexTab === t.id ? "#a5b4fc" : "#6b7280", border: "1px solid " + (dexTab === t.id ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.08)") }}>
                   <span>{t.label}</span>
                   <span className="text-xs font-normal mt-0.5" style={{ color: dexTab === t.id ? "rgba(165,180,252,0.7)" : "#374151" }}>{t.desc}</span>
                 </button>
@@ -1003,7 +1007,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
               const p = dexDisplay.find(p => p.id === autoActive) || ALL_PROJECTS.find(p => p.id === autoActive);
               return p ? (
                 <div className="rounded-xl p-4 mb-4 flex items-center gap-4" style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                  <div className="flex gap-1">{[0,1,2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                  <div className="flex gap-1">{[0,1,2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: (i * 0.15) + "s" }} />)}</div>
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center text-lg" style={{ background: "rgba(255,255,255,0.06)" }}>{p.isImg ? <img src={p.logo} style={{ width: 24, height: 24, borderRadius: 6 }} /> : p.logo}</div>
                   <div><p className="text-white text-sm font-semibold">Scanning {p.name} ({p.symbol})</p><p className="text-gray-500 text-xs">Searching BSCScan, Etherscan, website, socials…</p></div>
                   <span className="ml-auto text-indigo-400 text-xs">{autoLog.filter(l => l.status === "scanning" || l.status === "queued").length} remaining</span>
@@ -1023,7 +1027,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
 
             {dexLoading && (
               <div className="rounded-2xl p-8 text-center" style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)" }}>
-                <div className="flex gap-1 justify-center mb-3">{[0,1,2].map(i => <span key={i} className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                <div className="flex gap-1 justify-center mb-3">{[0,1,2].map(i => <span key={i} className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: (i * 0.15) + "s" }} />)}</div>
                 <p className="text-indigo-400 text-sm font-medium">Loading live data from DexScreener…</p>
               </div>
             )}
@@ -1176,7 +1180,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                       {viewTab === "top"      && <span className="text-gray-600 text-sm font-medium">#{p.rank}</span>}
                       {viewTab === "trending" && <ScoreBar score={p.trendScore} color="#ff6a00" />}
                       {viewTab === "gainers"  && <span className={`text-sm font-bold ${isPos ? "text-emerald-400" : "text-red-400"}`}>{p.change24h}</span>}
-                      {viewTab === "new"      && <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>{p.addedDaysAgo <= 1 ? "Today" : `${p.addedDaysAgo}d`}</span>}
+                      {viewTab === "new"      && <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>{p.addedDaysAgo <= 1 ? "Today" : p.addedDaysAgo + "d"}</span>}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>{p.logo}</div>
@@ -1316,7 +1320,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
 
       {autoRunning && page !== "autoscout" && (
         <div className="fixed bottom-6 right-6 z-50 rounded-2xl p-4 flex items-center gap-4 cursor-pointer shadow-2xl" style={{ background: "linear-gradient(135deg,#1a1f2e,#111827)", border: "1px solid rgba(99,102,241,0.35)", minWidth: 280 }} onClick={() => setPage("autoscout")}>
-          <div className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+          <div className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: (i * 0.15) + "s" }} />)}</div>
           <div className="flex-1"><p className="text-white text-sm font-semibold">Auto Scout running</p><p className="text-gray-500 text-xs">{doneCount} scanned · {emailCount} emails found</p></div>
           <span className="text-indigo-400 text-xs">View →</span>
         </div>
