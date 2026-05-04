@@ -101,7 +101,7 @@ const SAFE_API = async (messages) => {
       method: "POST",
       headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-haiku-4-5",
         max_tokens: 1024,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
@@ -148,7 +148,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
       const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1024, stream: true,
+        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1024, stream: true,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: prompt }] }),
       });
@@ -388,16 +388,17 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       addLog(`🚀 Scouting @${h}…`);
       addLog(`🔍 Searching for BD contacts…`);
 
-      const prompt = "Find BD contact email and telegram for crypto project @" + h + ". Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"unknown\",\"bestContactPath\":\"path\",\"outreachStrategy\":\"1 sentence\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"confidence\":\"Low\",\"bestPath\":\"Twitter DM\"}]}";
+      const prompt = "Find BD contact email and telegram for crypto project @" + h + ". Search their website, BSCScan/Etherscan token page, CoinGecko listing, and LinkedIn. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
       let res = await SAFE_API(msgs);
       let ei = 0;
-      while (res.stop_reason === "tool_use" && ei < 2 && !res._err) {
+      while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
         for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
         msgs.push({ role: "assistant", content: res.content });
         msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
+        await new Promise(resolve => setTimeout(resolve, 3000));
         res = await SAFE_API(msgs);
       }
       addLog(`✅ Done — ${ei} searches run`);
@@ -751,7 +752,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5",
+          model: "claude-haiku-4-5",
           max_tokens: 1024,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
@@ -767,7 +768,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
             body: JSON.stringify({
-              model: "claude-sonnet-4-5", max_tokens: 1024,
+              model: "claude-haiku-4-5", max_tokens: 1024,
               tools: [{ type: "web_search_20250305", name: "web_search" }],
               messages: [
                 { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
