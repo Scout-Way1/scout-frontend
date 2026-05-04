@@ -390,7 +390,6 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       addLog(isWebsite ? `🌐 Scouting ${h}…` : `🚀 Scouting @${h}…`);
       addLog(`🔍 Searching for BD contacts…`);
 
-      const isWebsite = searchMode === "website";
       const searchTarget = isWebsite ? handle.trim() : "@" + h;
       const prompt = isWebsite
         ? "Find BD contact email for the crypto project at website " + handle.trim() + ". Search: 1) visit the website contact/about/team page directly for any email, 2) '" + handle.trim() + " email contact', 3) BSCScan or Etherscan for this project. Look for contact@, hello@, bd@, info@, partnerships@ emails. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"" + handle.trim() + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}"
