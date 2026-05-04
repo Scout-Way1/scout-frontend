@@ -386,210 +386,25 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
 
     try {
       addLog(`🚀 Scouting @${h}…`);
+      addLog(`🔍 Searching for BD contacts…`);
 
-      // ── PHASE 1: Block explorer + domain discovery ───────────────────────────
-      addLog("🏦 Searching block explorers and finding domain…");
-      const explorerMsg = [{
-        role: "user",
-        content: `You are a crypto BD research tool. Find verified contact details for the project @${h}.
+      const prompt = `Find BD contacts for crypto project @${h}. Search: "${h} crypto email", "${h} telegram", "${h} website contact". Return ONLY JSON: {"projectName":"name","symbol":"SYM","emoji":"emoji","tagline":"one line","description":"2 sentences","category":"DeFi|Layer 1|Layer 2|AI|Other","stage":"Pre-Launch|Post-Launch|Listed","chain":"chain","tge":"date or Unknown","website":"domain","twitter":"@handle","telegram":"t.me/x or Unknown","discord":"url or Unknown","github":"url or Unknown","tags":["tag"],"trendScore":70,"listingInterest":"High|Medium|Low","listingInterestReason":"reason","contacts":[{"name":"Name","role":"role","email":"email or Unknown","twitter":"@handle","linkedin":"url or Unknown","telegram":"@handle or Unknown","confidence":"High|Medium|Low","bestPath":"Email|Twitter DM|Telegram","notes":"tip"}],"bdEmail":"email or Unknown","bdTelegram":"t.me/x or Unknown","bestContactPath":"specific path","outreachStrategy":"2 sentences","pitchAngle":"hook","redFlags":"any concerns","bdScore":70,"dataQuality":"High|Medium|Low"}`;
 
-Search in order:
-1. "${h} bscscan" — BSCScan token page has email, telegram, discord submitted by team
-2. "${h} etherscan" — Etherscan token page same
-3. "${h} crypto official website" — find their domain
-4. "${h} token contract email contact"
-
-Return ONLY JSON (no markdown):
-{"projectName":"string","symbol":"string","chain":"BSC|ETH|Polygon|Solana|Other","contract":"0x... or none","domain":"domain.com","explorerEmail":"email or null","explorerTelegram":"t.me/x or null","explorerTwitter":"@handle or null","explorerDiscord":"discord url or null","explorerLinkedin":"linkedin url or null","explorerSource":"source URL or null","confidence":"High|Medium|Low"}`
-      }];
-
-      let explorerRes = await SAFE_API(explorerMsg);
+      let msgs = [{ role: "user", content: prompt }];
+      let res = await SAFE_API(msgs);
       let ei = 0;
-      while (explorerRes.stop_reason === "tool_use" && ei < 6 && !explorerRes._err) {
+      while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
-        for (const b of explorerRes.content) { if (b.type === "tool_use") addLog(`🏦 "${b.input?.query}"`); }
-        explorerMsg.push({ role: "assistant", content: explorerRes.content });
-        explorerMsg.push({ role: "user", content: explorerRes.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-        explorerRes = await SAFE_API(explorerMsg);
+        for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input?.query}`); }
+        msgs.push({ role: "assistant", content: res.content });
+        msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
+        res = await SAFE_API(msgs);
       }
+      addLog(`✅ Done — ${ei} searches run`);
 
-      let explorerData = null;
-      try {
-        const et = explorerRes.content.filter(b => b.type === "text").map(b => b.text).join("");
-        explorerData = SAFE_JSON(et);
-      } catch {}
-
-      // Extract domain and chain from explorer results
-      let domain   = explorerData?.domain?.replace(/^https?:\/\//, "").replace(/\/$/, "").trim() || null;
-      let chain    = explorerData?.chain || null;
-      let contract = explorerData?.contract || null;
-
-      if (explorerData?.explorerEmail)    addLog(`🏆 Explorer email: ${explorerData.explorerEmail}`);
-      if (explorerData?.explorerTelegram) addLog(`💬 Telegram: ${explorerData.explorerTelegram}`);
-      addLog(`🌐 Domain: ${domain || "not found"} | Chain: ${chain || "unknown"}`);
-
-      // ── PHASE 1b: Aggressive email search using web search ───────────────────
-      // The site blocks scrapers. We use Google's indexed cache via web search.
-      addLog("🔍 Searching for email via Google index…");
-      const websiteEmailMsg = [{
-        role: "user",
-        content: `Find the EXACT contact email address for the crypto project "@${h}"${domain ? ` whose website is ${domain}` : ""}.
-
-The website likely blocks scrapers, so search Google's index. Run these specific searches:
-1. ${domain ? `"${domain}" email` : `"${h} crypto" email`}
-2. ${domain ? `"office@${domain}" OR "contact@${domain}" OR "hi@${domain}" OR "hello@${domain}" OR "info@${domain}"` : `"@${h}" email address`}
-3. ${domain ? `site:${domain}` : `"${h} official website"`}
-4. "${h} contact" email
-5. "${h}" "@${domain ? domain.split(".")[0] : h}"
-
-IMPORTANT: Look carefully at ALL search result snippets for any email address. The email is likely in the website footer or contact section. It may look like "office@ateg-capital.com" or similar.
-
-If you see ANY email address in the search results that belongs to this project, return it.
-
-Return ONLY JSON (no markdown): {"email":"the.found@email.com","source":"exact URL or search result where found","allEmails":["every","email","found"],"confidence":"High if on their site, Medium if secondary source"}`
-      }];
-
-      let websiteEmailRes = await SAFE_API(websiteEmailMsg);
-      let wi = 0;
-      while (websiteEmailRes.stop_reason === "tool_use" && wi < 6 && !websiteEmailRes._err) {
-        wi++;
-        for (const b of websiteEmailRes.content) { if (b.type === "tool_use") addLog(`📧 "${b.input?.query}"`); }
-        websiteEmailMsg.push({ role: "assistant", content: websiteEmailRes.content });
-        websiteEmailMsg.push({ role: "user", content: websiteEmailRes.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-        websiteEmailRes = await SAFE_API(websiteEmailMsg);
-      }
-
-      let websiteEmailData = null;
-      try {
-        const wt = websiteEmailRes.content.filter(b => b.type === "text").map(b => b.text).join("");
-        websiteEmailData = SAFE_JSON(wt);
-      } catch {}
-
-      if (websiteEmailData?.email) addLog(`🌐 Website email found: ${websiteEmailData.email} (${websiteEmailData.source || "web search"})`);
-      else addLog(`📧 No email found in web search results`);
-
-      // Collect all AI-found emails with sources
-      const aiEmails = [];
-      if (explorerData?.explorerEmail)             aiEmails.push({ email: explorerData.explorerEmail,  source: explorerData.explorerSource || "Block explorer" });
-      if (websiteEmailData?.email)                 aiEmails.push({ email: websiteEmailData.email,       source: websiteEmailData.source    || "Website search" });
-      if (websiteEmailData?.allEmails?.length > 0) websiteEmailData.allEmails.forEach(e => { if (e && e.includes("@") && !aiEmails.find(a => a.email === e)) aiEmails.push({ email: e, source: "Website search" }); });
-
-      // ── PHASE 2: Direct page fetch (website + linktree) ───────────────────────
-      const pages = [];
-      if (domain) { pages.push(`https://${domain}`, `https://${domain}/contact`, `https://${domain}/about`); }
-      pages.push(`https://linktr.ee/${h}`);
-      addLog(`📄 Fetching ${pages.length} pages directly…`);
-
-      const fetched = await Promise.allSettled(pages.map(url => fetchPage(url).then(t => ({ url, text: t }))));
-      let allText = ""; let scrapedEmails = []; let urls = [];
-      for (const r of fetched) {
-        if (r.status === "fulfilled" && r.value?.text) {
-          const { url, text } = r.value;
-          const em = extractEmails(text);
-          if (em.length > 0 || text.length > 100) {
-            addLog(`   ✅ ${url.split("/")[2]} → ${em.length > 0 ? em.join(", ") : "fetched"}`);
-            allText += `\n\n=== ${url} ===\n${text}`;
-            scrapedEmails.push(...em); urls.push(url);
-          } else { addLog(`   ⚠️ ${url.split("/")[2]} → blocked/empty`); }
-        }
-      }
-
-      // Merge all email sources: AI-found (highest trust) + scraped
-      const allFoundEmails = [
-        ...aiEmails.map(e => e.email),
-        ...scrapedEmails,
-      ];
-      const emails = [...new Set(allFoundEmails.filter(e => e && e.includes("@")))];
-
-      if (emails.length > 0) addLog(`📧 ✅ Emails confirmed: ${emails.join(", ")}`);
-      else addLog(`📧 No emails found yet — AI synthesis will search further`);
-
-      // Best confirmed email from AI searches
-      const bestEmail = aiEmails[0]?.email || scrapedEmails[0] || null;
-      const bestEmailSource = aiEmails[0]?.source || (scrapedEmails[0] ? `Direct scrape: ${urls[0]}` : null);
-
-      // ── PHASE 3: AI synthesis ────────────────────────────────────────────────
-      addLog("🤖 AI building full BD profile…");
-
-      const explorerNote = `
-VERIFIED CONTACT DATA (from AI web search):
-${bestEmail ? `✅ EMAIL CONFIRMED: ${bestEmail} (source: ${bestEmailSource}) — YOU MUST put this in bdEmail and contacts[0].email` : "❌ No email confirmed yet"}
-${explorerData?.explorerTelegram ? `✅ TELEGRAM: ${explorerData.explorerTelegram}` : ""}
-${explorerData?.explorerTwitter  ? `✅ TWITTER: ${explorerData.explorerTwitter}` : ""}
-${explorerData?.explorerDiscord  ? `✅ DISCORD: ${explorerData.explorerDiscord}` : ""}
-${explorerData?.explorerLinkedin ? `✅ LINKEDIN: ${explorerData.explorerLinkedin}` : ""}
-${aiEmails.length > 1 ? `All emails found: ${aiEmails.map(e => e.email).join(", ")}` : ""}`;
-
-      const emailNote = emails.length > 0
-        ? `\nALL CONFIRMED EMAILS: ${emails.join(", ")} — include ALL with confidence "High".`
-        : `\nNo email confirmed yet. Search: "site:${domain || h+".com"} contact email", "${h} crypto email contact", "${domain || h} office email".`;
-
-      const websiteNote = (domain && !bestEmail)
-        ? `\nCRITICAL: Website is ${domain}. Their footer likely has an email like office@${domain} or contact@${domain}. Search "site:${domain}" and "${domain} contact" to find it.`
-        : "";
-
-      const pageNote = allText ? `\nWEBSITE CONTENT:\n${allText.slice(0, 8000)}` : "";
-
-      const fp = `Scout AI for Exchange BD team. Research project @${h}.${explorerNote}${pageNote}${emailNote}${websiteNote}
-
-${bestEmail ? `MANDATORY: bdEmail must be "${bestEmail}". Do not leave it as Unknown.` : "Search harder for email — it exists on their website."}
-
-Return ONLY raw JSON (no markdown):
-{"projectName":"string","symbol":"string","emoji":"emoji","tagline":"string","description":"2-3 sentences","category":"Layer 1|Layer 2|DeFi|AI|DePIN|RWA|Infrastructure|GameFi|SocialFi|Stablecoin|NFT|Other","stage":"Pre-Launch|Presale|ICO|Post-Launch|Listed","chain":"string","tge":"string","fundraising":"string","investors":["string"],"website":"${domain || "domain.com"}","twitter":"@${h}","telegram":"string","discord":"string","github":"string","tags":["string"],"trendScore":70,"listingInterest":"High|Medium|Low","listingInterestReason":"string","contacts":[{"name":"string","role":"string","email":"include if found — MUST include ${bestEmail || "verified email"} here","twitter":"@handle","linkedin":"url","telegram":"@handle","confidence":"High|Medium|Low","source":"exact source URL","bestPath":"Email|Twitter DM|LinkedIn|Telegram","notes":"approach for exchange listing"}],"bdEmail":"${bestEmail || "Unknown"}","bdTelegram":"${explorerData?.explorerTelegram || "Unknown"}","bestContactPath":"specific actionable path","outreachStrategy":"3-4 sentences","pitchAngle":"one line hook","competitorExchanges":["string"],"redFlags":"string","bdScore":70,"dataQuality":"High|Medium|Low","searchNotes":"what was found where"}`;
-
-      let fm = [{ role: "user", content: fp }];
-      let fr = await SAFE_API(fm);
-      let fi = 0;
-      while (fr.stop_reason === "tool_use" && fi < 6 && !fr._err) {
-        fi++;
-        for (const b of fr.content) { if (b.type === "tool_use") addLog(`🔍 "${b.input?.query}"`); }
-        fm.push({ role: "assistant", content: fr.content });
-        fm.push({ role: "user", content: fr.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-        fr = await SAFE_API(fm);
-      }
-      addLog(`✅ Done — ${ei + fi} total searches`);
-
-      const ft = fr.content.filter(b => b.type === "text").map(b => b.text).join("");
-      let parsed = SAFE_JSON(ft);
-
-      // Fallback if AI unavailable
-      if (!parsed || fr._err) {
-        parsed = {
-          projectName: h.charAt(0).toUpperCase() + h.slice(1), symbol: h.toUpperCase().slice(0, 6),
-          emoji: "🔍", tagline: `Crypto project @${h}`,
-          description: `Visit ${domain || "their website"} for more details.`,
-          category: "Crypto", stage: "Unknown", chain: "Unknown", tge: "Unknown",
-          website: domain || "Unknown", twitter: `@${h}`, telegram: "Unknown",
-          discord: "Unknown", github: "Unknown", tags: [], trendScore: 50,
-          listingInterest: "Medium", listingInterestReason: "Manual review needed",
-          contacts: [{ name: "Team", role: "Contact", email: emails[0], twitter: `@${h}`, confidence: emails.length > 0 ? "High" : "Low", source: emails.length > 0 ? `Scraped: ${urls[0]}` : "Fallback", bestPath: emails.length > 0 ? "Email" : "Twitter DM", notes: "Reach via official channels." }],
-          bdEmail: emails[0] || "Unknown", bdTelegram: "Unknown",
-          bestContactPath: emails.length > 0 ? `Email: ${emails[0]}` : `Twitter DM: @${h}`,
-          outreachStrategy: `Reach out to @${h} for exchange listing discussion.`,
-          pitchAngle: "Scout is a top 5 global exchange — let's explore a listing.",
-          competitorExchanges: [], redFlags: "None", bdScore: 50,
-          dataQuality: emails.length > 0 ? "Medium" : "Low",
-          searchNotes: `${urls.length} pages fetched. ${emails.length} emails found. AI enrichment ${fr._err ? "unavailable" : "complete"}.`,
-        };
-      }
-
-      // Hard-inject confirmed emails — AI must not ignore them
-      if (bestEmail && (!parsed.bdEmail || parsed.bdEmail === "Unknown")) {
-        parsed.bdEmail = bestEmail;
-        parsed.dataQuality = "High";
-      }
-      if (emails.length > 0 && (!parsed.contacts?.[0]?.email)) {
-        if (!parsed.contacts || parsed.contacts.length === 0) {
-          parsed.contacts = [{ name: "Team", role: "Official Contact", email: bestEmail, twitter: `@${h}`, confidence: "High", source: bestEmailSource || "Verified", bestPath: "Email", notes: "Reach via email for exchange listing." }];
-        } else {
-          parsed.contacts[0].email = parsed.contacts[0].email || bestEmail;
-          if (!parsed.contacts[0].email) { parsed.contacts[0].email = bestEmail; parsed.contacts[0].confidence = "High"; parsed.contacts[0].bestPath = "Email"; }
-        }
-      }
-      if (!parsed.bestContactPath || parsed.bestContactPath === "Unknown") {
-        parsed.bestContactPath = parsed.bdEmail && parsed.bdEmail !== "Unknown" ? `Email: ${parsed.bdEmail}` : `Twitter DM: @${h}`;
-      }
-      parsed._log = log; parsed._searches = ei + wi + fi; parsed._emails = emails;
+      const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
+      let parsed = SAFE_JSON(txt);
+      const emails = parsed?.bdEmail && parsed.bdEmail !== "Unknown" ? [parsed.bdEmail] : [];
 
       setResult(parsed);
       setHistory(prev => [{ handle: h, result: parsed, ts: new Date() }, ...prev].slice(0, 10));
