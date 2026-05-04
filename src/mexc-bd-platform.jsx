@@ -97,7 +97,7 @@ function ScoreBar({ score, color = "#ff6a00" }) {
 
 const SAFE_API = async (messages) => {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
@@ -135,7 +135,7 @@ function AIContactModal({ project, onClose }) {
     contacts: [{ name: "Team", role: "Official Contact", twitter: project.twitter, confidence: "Low", source: "Fallback", bestPath: "Twitter DM", notes: "Reach via Twitter DM or official website." }],
     bdEmail: "Unknown", bdTelegram: "Unknown",
     bestContactPath: `Twitter DM: ${project.twitter}`,
-    bestApproach: `Reach out to ${project.twitter} on Twitter for MEXC listing discussion.`,
+    bestApproach: `Reach out to ${project.twitter} on Twitter for exchange listing discussion.`,
     listingInterest: "Medium",
   });
 
@@ -143,9 +143,9 @@ function AIContactModal({ project, onClose }) {
     setPhase("searching"); setStream(""); setContacts(null);
     const prompt = `Find BD contacts for crypto project "${project.name}" (${project.symbol}), Twitter: ${project.twitter}.
 Search website, Linktree, CoinGecko, LinkedIn. NEVER invent emails.
-Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"string","email":"omit if not found","twitter":"@handle","linkedin":"url","telegram":"@handle","confidence":"High|Medium|Low","source":"url","bestPath":"Email|Twitter DM|LinkedIn|Telegram","notes":"string"}],"bdEmail":"verified or Unknown","bdTelegram":"string","bestContactPath":"specific path","bestApproach":"3 sentence MEXC pitch","listingInterest":"High|Medium|Low"}`;
+Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"string","email":"omit if not found","twitter":"@handle","linkedin":"url","telegram":"@handle","confidence":"High|Medium|Low","source":"url","bestPath":"Email|Twitter DM|LinkedIn|Telegram","notes":"string"}],"bdEmail":"verified or Unknown","bdTelegram":"string","bestContactPath":"specific path","bestApproach":"3 sentence Scout pitch","listingInterest":"High|Medium|Low"}`;
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500, stream: true,
@@ -238,7 +238,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
               </div>
               {contacts.bestApproach && (
                 <div className="rounded-xl p-4" style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.17)" }}>
-                  <p className="text-indigo-400 text-xs font-bold mb-1.5 uppercase">💡 MEXC Outreach Strategy</p>
+                  <p className="text-indigo-400 text-xs font-bold mb-1.5 uppercase">💡 Outreach Strategy</p>
                   <p className="text-gray-300 text-sm">{contacts.bestApproach}</p>
                 </div>
               )}
@@ -530,12 +530,12 @@ ${aiEmails.length > 1 ? `All emails found: ${aiEmails.map(e => e.email).join(", 
 
       const pageNote = allText ? `\nWEBSITE CONTENT:\n${allText.slice(0, 8000)}` : "";
 
-      const fp = `MEXC Scout AI for MEXC Exchange BD team. Research project @${h}.${explorerNote}${pageNote}${emailNote}${websiteNote}
+      const fp = `Scout AI for Exchange BD team. Research project @${h}.${explorerNote}${pageNote}${emailNote}${websiteNote}
 
 ${bestEmail ? `MANDATORY: bdEmail must be "${bestEmail}". Do not leave it as Unknown.` : "Search harder for email — it exists on their website."}
 
 Return ONLY raw JSON (no markdown):
-{"projectName":"string","symbol":"string","emoji":"emoji","tagline":"string","description":"2-3 sentences","category":"Layer 1|Layer 2|DeFi|AI|DePIN|RWA|Infrastructure|GameFi|SocialFi|Stablecoin|NFT|Other","stage":"Pre-Launch|Presale|ICO|Post-Launch|Listed","chain":"string","tge":"string","fundraising":"string","investors":["string"],"website":"${domain || "domain.com"}","twitter":"@${h}","telegram":"string","discord":"string","github":"string","tags":["string"],"trendScore":70,"listingInterest":"High|Medium|Low","listingInterestReason":"string","contacts":[{"name":"string","role":"string","email":"include if found — MUST include ${bestEmail || "verified email"} here","twitter":"@handle","linkedin":"url","telegram":"@handle","confidence":"High|Medium|Low","source":"exact source URL","bestPath":"Email|Twitter DM|LinkedIn|Telegram","notes":"approach for MEXC listing"}],"bdEmail":"${bestEmail || "Unknown"}","bdTelegram":"${explorerData?.explorerTelegram || "Unknown"}","bestContactPath":"specific actionable path","outreachStrategy":"3-4 sentences","pitchAngle":"one line hook","competitorExchanges":["string"],"redFlags":"string","bdScore":70,"dataQuality":"High|Medium|Low","searchNotes":"what was found where"}`;
+{"projectName":"string","symbol":"string","emoji":"emoji","tagline":"string","description":"2-3 sentences","category":"Layer 1|Layer 2|DeFi|AI|DePIN|RWA|Infrastructure|GameFi|SocialFi|Stablecoin|NFT|Other","stage":"Pre-Launch|Presale|ICO|Post-Launch|Listed","chain":"string","tge":"string","fundraising":"string","investors":["string"],"website":"${domain || "domain.com"}","twitter":"@${h}","telegram":"string","discord":"string","github":"string","tags":["string"],"trendScore":70,"listingInterest":"High|Medium|Low","listingInterestReason":"string","contacts":[{"name":"string","role":"string","email":"include if found — MUST include ${bestEmail || "verified email"} here","twitter":"@handle","linkedin":"url","telegram":"@handle","confidence":"High|Medium|Low","source":"exact source URL","bestPath":"Email|Twitter DM|LinkedIn|Telegram","notes":"approach for exchange listing"}],"bdEmail":"${bestEmail || "Unknown"}","bdTelegram":"${explorerData?.explorerTelegram || "Unknown"}","bestContactPath":"specific actionable path","outreachStrategy":"3-4 sentences","pitchAngle":"one line hook","competitorExchanges":["string"],"redFlags":"string","bdScore":70,"dataQuality":"High|Medium|Low","searchNotes":"what was found where"}`;
 
       let fm = [{ role: "user", content: fp }];
       let fr = await SAFE_API(fm);
@@ -565,8 +565,8 @@ Return ONLY raw JSON (no markdown):
           contacts: [{ name: "Team", role: "Contact", email: emails[0], twitter: `@${h}`, confidence: emails.length > 0 ? "High" : "Low", source: emails.length > 0 ? `Scraped: ${urls[0]}` : "Fallback", bestPath: emails.length > 0 ? "Email" : "Twitter DM", notes: "Reach via official channels." }],
           bdEmail: emails[0] || "Unknown", bdTelegram: "Unknown",
           bestContactPath: emails.length > 0 ? `Email: ${emails[0]}` : `Twitter DM: @${h}`,
-          outreachStrategy: `Reach out to @${h} for MEXC listing discussion.`,
-          pitchAngle: "MEXC is a top 5 global exchange — let's explore a listing.",
+          outreachStrategy: `Reach out to @${h} for exchange listing discussion.`,
+          pitchAngle: "Scout is a top 5 global exchange — let's explore a listing.",
           competitorExchanges: [], redFlags: "None", bdScore: 50,
           dataQuality: emails.length > 0 ? "Medium" : "Low",
           searchNotes: `${urls.length} pages fetched. ${emails.length} emails found. AI enrichment ${fr._err ? "unavailable" : "complete"}.`,
@@ -580,7 +580,7 @@ Return ONLY raw JSON (no markdown):
       }
       if (emails.length > 0 && (!parsed.contacts?.[0]?.email)) {
         if (!parsed.contacts || parsed.contacts.length === 0) {
-          parsed.contacts = [{ name: "Team", role: "Official Contact", email: bestEmail, twitter: `@${h}`, confidence: "High", source: bestEmailSource || "Verified", bestPath: "Email", notes: "Reach via email for MEXC listing." }];
+          parsed.contacts = [{ name: "Team", role: "Official Contact", email: bestEmail, twitter: `@${h}`, confidence: "High", source: bestEmailSource || "Verified", bestPath: "Email", notes: "Reach via email for exchange listing." }];
         } else {
           parsed.contacts[0].email = parsed.contacts[0].email || bestEmail;
           if (!parsed.contacts[0].email) { parsed.contacts[0].email = bestEmail; parsed.contacts[0].confidence = "High"; parsed.contacts[0].bestPath = "Email"; }
@@ -800,7 +800,7 @@ Return ONLY raw JSON (no markdown):
 
           <div className="grid md:grid-cols-2 gap-5">
             <div className="rounded-2xl p-5" style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.04))", border: "1px solid rgba(99,102,241,0.18)" }}>
-              <p className="text-indigo-400 font-bold text-xs uppercase mb-3">💡 MEXC Outreach Strategy</p>
+              <p className="text-indigo-400 font-bold text-xs uppercase mb-3">💡 Outreach Strategy</p>
               <p className="text-gray-300 text-sm leading-relaxed mb-4">{result.outreachStrategy}</p>
               <div className="rounded-xl p-3" style={{ background: "rgba(255,106,0,0.08)", border: "1px solid rgba(255,106,0,0.2)" }}>
                 <p className="text-orange-400 text-xs font-semibold mb-1">🎯 Opening Hook</p>
@@ -928,7 +928,7 @@ export default function App() {
 
     // Then: try to enrich with live AI web search
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
@@ -944,7 +944,7 @@ export default function App() {
         let itr = 0;
         while (data.stop_reason === "tool_use" && itr < 5) {
           itr++;
-          data = await fetch("https://api.anthropic.com/v1/messages", {
+          data = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
             method: "POST",
             headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
             body: JSON.stringify({
@@ -1085,7 +1085,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)" }}>M</div>
-            <span className="font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "1.05rem" }}>MEXC <span style={{ color: "#ff6a00" }}>Scout</span></span>
+            <span className="font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "1.05rem" }}>Scout <span style={{ color: "#ff6a00" }}>Scout</span></span>
           </div>
           <div className="hidden md:flex gap-1">
             {NAV.map(item => (
@@ -1098,7 +1098,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
           </div>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs" style={{ background: "rgba(255,106,0,0.1)", border: "1px solid rgba(255,106,0,0.2)", color: "#ff6a00" }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />MEXC BD Portal
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />BD Portal
         </div>
       </nav>
 
@@ -1612,7 +1612,7 @@ function HistoryDetailModal({ item, onClose }) {
           {/* Outreach strategy */}
           {r.bestApproach && (
             <div className="rounded-xl p-4" style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)" }}>
-              <p className="text-indigo-400 font-semibold text-sm mb-2">🎯 MEXC Outreach Strategy</p>
+              <p className="text-indigo-400 font-semibold text-sm mb-2">🎯 Outreach Strategy</p>
               <p className="text-gray-300 text-sm leading-relaxed">{r.bestApproach}</p>
             </div>
           )}
