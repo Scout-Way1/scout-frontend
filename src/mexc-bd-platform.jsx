@@ -101,7 +101,7 @@ const SAFE_API = async (messages) => {
       method: "POST",
       headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 4000,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
@@ -148,7 +148,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
       const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500, stream: true,
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1500, stream: true,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: prompt }] }),
       });
@@ -932,7 +932,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 2000,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
@@ -948,7 +948,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514", max_tokens: 2000,
+              model: "claude-sonnet-4-5", max_tokens: 2000,
               tools: [{ type: "web_search_20250305", name: "web_search" }],
               messages: [
                 { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
