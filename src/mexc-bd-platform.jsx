@@ -160,7 +160,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
           const { done, value } = await reader.read(); if (done) break;
           for (const line of dec.decode(value).split("\n")) {
             if (line.startsWith("data: ")) {
-              try { const d = JSON.parse(line.slice(6)); if (d.delta?.text) { full += d.delta.text; setStream(full); } } catch {}
+              try { const d = JSON.parse(line.slice(6)); if (d.delta && d.delta.text) { full += d.delta.text; setStream(full); } } catch {}
             }
           }
         }
@@ -217,12 +217,12 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
                 </div>
               )}
               <div className="space-y-2">
-                {contacts.contacts?.map((c, i) => (
+                {contacts.contacts && contacts.contacts.map((c, i) => (
                   <div key={i} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <div className="flex items-start justify-between mb-2">
                       <div><p className="text-white font-semibold text-sm">{c.name}</p><p className="text-gray-500 text-xs">{c.role}</p></div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: CONF[c.confidence]?.bg, color: CONF[c.confidence]?.c }}>{c.confidence}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: CONF[c.confidence] && CONF[c.confidence].bg, color: CONF[c.confidence] && CONF[c.confidence].c }}>{c.confidence}</span>
                         {c.bestPath && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>via {c.bestPath}</span>}
                       </div>
                     </div>
@@ -272,7 +272,7 @@ function ProjectModal({ project, onClose, onFindContacts }) {
               </div>
             ))}
           </div>
-          {project.tags?.length > 0 && (
+          {project.tags && project.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {project.tags.map(t => <span key={t} className="px-3 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.2)" }}>{t}</span>)}
             </div>
@@ -395,7 +395,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       let ei = 0;
       while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
-        for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input?.query}`); }
+        for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
         msgs.push({ role: "assistant", content: res.content });
         msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
         res = await SAFE_API(msgs);
@@ -404,7 +404,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
 
       const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
       let parsed = SAFE_JSON(txt);
-      const emails = parsed?.bdEmail && parsed.bdEmail !== "Unknown" ? [parsed.bdEmail] : [];
+      const emails = (parsed && parsed.bdEmail && parsed.bdEmail !== "Unknown") ? [parsed.bdEmail] : [];
 
       setResult(parsed);
       setHistory(prev => [{ handle: h, result: parsed, ts: new Date() }, ...prev].slice(0, 10));
@@ -538,7 +538,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
                 </div>
               </div>
             </div>
-            {result.tags?.length > 0 && <div className="flex flex-wrap gap-2 mt-4">{result.tags.map(t => <span key={t} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>{t}</span>)}</div>}
+            {result.tags && result.tags.length > 0 && <div className="flex flex-wrap gap-2 mt-4">{result.tags.map(t => <span key={t} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>{t}</span>)}</div>}
           </div>
 
           <div className="grid md:grid-cols-2 gap-5">
@@ -565,13 +565,13 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
           <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <p className="text-white font-semibold text-sm">📬 Contact Intelligence</p>
-              {result.dataQuality && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.dataQuality]?.bg, color: CONF[result.dataQuality]?.c }}>{result.dataQuality === "High" ? "✅" : "⚠️"} {result.dataQuality} Quality</span>}
+              {result.dataQuality && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.dataQuality] && CONF[result.dataQuality].bg, color: CONF[result.dataQuality] && CONF[result.dataQuality].c }}>{result.dataQuality === "High" ? "✅" : "⚠️"} {result.dataQuality} Quality</span>}
             </div>
-            <div className="rounded-xl p-4 mb-4 flex items-start gap-3" style={{ background: result._emails?.length > 0 ? "rgba(16,185,129,0.07)" : "rgba(245,158,11,0.07)", border: `1px solid ${result._emails?.length > 0 ? "rgba(16,185,129,0.22)" : "rgba(245,158,11,0.22)"}` }}>
-              <span className="text-2xl mt-0.5">{result._emails?.length > 0 ? "✅" : "💡"}</span>
-              <div className="flex-1"><p className="font-bold text-sm mb-1" style={{ color: result._emails?.length > 0 ? "#10b981" : "#f59e0b" }}>Best Contact Path</p><p className="text-white text-sm font-medium">{result.bestContactPath}</p></div>
+            <div className="rounded-xl p-4 mb-4 flex items-start gap-3" style={{ background: result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.07)" : "rgba(245,158,11,0.07)", border: `1px solid ${result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.22)" : "rgba(245,158,11,0.22)"}` }}>
+              <span className="text-2xl mt-0.5">{result._emails && result._emails.length > 0 ? "✅" : "💡"}</span>
+              <div className="flex-1"><p className="font-bold text-sm mb-1" style={{ color: result._emails && result._emails.length > 0 ? "#10b981" : "#f59e0b" }}>Best Contact Path</p><p className="text-white text-sm font-medium">{result.bestContactPath}</p></div>
             </div>
-            {result._emails?.length > 0 && (
+            {result._emails && result._emails.length > 0 && (
               <div className="rounded-xl p-3 mb-4" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
                 <p className="text-emerald-400 text-xs font-bold mb-2 uppercase">📧 Emails scraped from website</p>
                 <div className="flex flex-wrap gap-2">
@@ -591,12 +591,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
               </div>
             )}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {result.contacts?.map((c, i) => (
+              {result.contacts && result.contacts.map((c, i) => (
                 <div key={i} className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                   <div className="flex items-start justify-between mb-3">
                     <div><p className="text-white font-semibold text-sm">{c.name}</p><p className="text-gray-500 text-xs">{c.role}</p></div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: CONF[c.confidence]?.bg, color: CONF[c.confidence]?.c }}>{c.confidence}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: CONF[c.confidence] && CONF[c.confidence].bg, color: CONF[c.confidence] && CONF[c.confidence].c }}>{c.confidence}</span>
                       {c.bestPath && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>via {c.bestPath}</span>}
                     </div>
                   </div>
@@ -627,7 +627,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
                 <p className="text-white font-semibold text-sm mb-3">📈 Listing Assessment</p>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-gray-500 text-xs">Interest:</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.listingInterest]?.bg, color: CONF[result.listingInterest]?.c }}>{result.listingInterest}</span>
+                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.listingInterest] && CONF[result.listingInterest].bg, color: CONF[result.listingInterest] && CONF[result.listingInterest].c }}>{result.listingInterest}</span>
                 </div>
                 <p className="text-gray-400 text-xs">{result.listingInterestReason}</p>
               </div>
@@ -776,7 +776,7 @@ export default function App() {
 
         const txt = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
         const parsed = SAFE_JSON(txt);
-        if (parsed?.trending?.length > 0 || parsed?.new?.length > 0) {
+        if (parsed && parsed.trending && parsed.trending.length > 0 || parsed && parsed.new && parsed.new.length > 0) {
           const toP = (item, i, source) => ({
             id: `live-${source}-${i}`, rank: i+1,
             name: item.name||"Unknown", symbol: (item.symbol||"?").toUpperCase(),
@@ -992,7 +992,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
               ))}
               <div className="ml-auto flex items-center gap-2">
                 <span className="text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(99,102,241,0.1)", color: "#a5b4fc" }}>
-                  📡 {dexData.trending[0]?.tags?.includes("GeckoTerminal") ? "GeckoTerminal" : "DexScreener"} API
+                  📡 {dexData.trending[0] && dexData.trending[0].tags && dexData.trending[0].tags.includes("GeckoTerminal") ? "GeckoTerminal" : "DexScreener"} API
                 </span>
                 <a href="https://dexscreener.com" target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded-lg hover:opacity-80" style={{ background: "rgba(255,255,255,0.05)", color: "#6b7280" }}>Open DexScreener ↗</a>
               </div>
@@ -1108,13 +1108,13 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                         {log.status === "error"   && <span className="text-red-400 text-xs">❌ Error</span>}
                         {log.status === "scanning"&& !isAct && <span className="text-gray-600 text-xs">Queued</span>}
                       </div>
-                      <div>{r?.bdEmail && r.bdEmail !== "Unknown"
+                      <div>{r && r.bdEmail && r.bdEmail !== "Unknown"
                         ? <div className="flex items-center gap-1.5"><span className="text-emerald-300 text-xs font-mono truncate max-w-[150px]">{r.bdEmail}</span><button onClick={() => navigator.clipboard.writeText(r.bdEmail)} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>⎘</button></div>
                         : <span className="text-gray-700 text-xs">{r ? "Not found" : "—"}</span>}
                       </div>
-                      <div>{r?.confidence && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: r.confidence === "High" ? "rgba(16,185,129,0.12)" : r.confidence === "Medium" ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", color: r.confidence === "High" ? "#10b981" : r.confidence === "Medium" ? "#f59e0b" : "#ef4444" }}>{r.confidence}</span>}</div>
+                      <div>{r && r.confidence && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: r.confidence === "High" ? "rgba(16,185,129,0.12)" : r.confidence === "Medium" ? "rgba(245,158,11,0.12)" : "rgba(239,68,68,0.12)", color: r.confidence === "High" ? "#10b981" : r.confidence === "Medium" ? "#f59e0b" : "#ef4444" }}>{r.confidence}</span>}</div>
                       <div className="flex gap-1.5 justify-end">
-                        {r?.bestContactPath && <span className="text-gray-600 text-xs truncate max-w-[80px]">{r.bestContactPath.split(":")[0]}</span>}
+                        {r && r.bestContactPath && <span className="text-gray-600 text-xs truncate max-w-[80px]">{r.bestContactPath.split(":")[0]}</span>}
                         <button onClick={() => { const p = [...dexDisplay, ...ALL_PROJECTS].find(x => x.id === log.id); if (p) setContact(p); }} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>🤖</button>
                         <button onClick={() => { const p = [...dexDisplay, ...ALL_PROJECTS].find(x => x.id === log.id); if (p) addLead({ ...p, ...(r || {}) }); }} className="px-2.5 py-1.5 rounded-lg text-xs flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }}>+</button>
                       </div>
