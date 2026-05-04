@@ -388,12 +388,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       addLog(`🚀 Scouting @${h}…`);
       addLog(`🔍 Searching for BD contacts…`);
 
-      const prompt = `Find BD contacts for crypto project @${h}. Search: "${h} crypto email", "${h} telegram", "${h} website contact". Return ONLY JSON: {"projectName":"name","symbol":"SYM","emoji":"emoji","tagline":"one line","description":"2 sentences","category":"DeFi|Layer 1|Layer 2|AI|Other","stage":"Pre-Launch|Post-Launch|Listed","chain":"chain","tge":"date or Unknown","website":"domain","twitter":"@handle","telegram":"t.me/x or Unknown","discord":"url or Unknown","github":"url or Unknown","tags":["tag"],"trendScore":70,"listingInterest":"High|Medium|Low","listingInterestReason":"reason","contacts":[{"name":"Name","role":"role","email":"email or Unknown","twitter":"@handle","linkedin":"url or Unknown","telegram":"@handle or Unknown","confidence":"High|Medium|Low","bestPath":"Email|Twitter DM|Telegram","notes":"tip"}],"bdEmail":"email or Unknown","bdTelegram":"t.me/x or Unknown","bestContactPath":"specific path","outreachStrategy":"2 sentences","pitchAngle":"hook","redFlags":"any concerns","bdScore":70,"dataQuality":"High|Medium|Low"}`;
+      const prompt = "Find BD contact email and telegram for crypto project @" + h + ". Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"unknown\",\"bestContactPath\":\"path\",\"outreachStrategy\":\"1 sentence\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"confidence\":\"Low\",\"bestPath\":\"Twitter DM\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
       let res = await SAFE_API(msgs);
       let ei = 0;
-      while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
+      while (res.stop_reason === "tool_use" && ei < 2 && !res._err) {
         ei++;
         for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
         msgs.push({ role: "assistant", content: res.content });
