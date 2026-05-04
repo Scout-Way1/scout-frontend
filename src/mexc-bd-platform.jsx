@@ -409,7 +409,7 @@ Return ONLY JSON (no markdown):
         ei++;
         for (const b of explorerRes.content) { if (b.type === "tool_use") addLog(`🏦 "${b.input?.query}"`); }
         explorerMsg.push({ role: "assistant", content: explorerRes.content });
-        explorerMsg.push({ role: "user", content: [{ type: "text", text: "Continue searching then return the JSON." }] });
+        explorerMsg.push({ role: "user", content: explorerRes.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
         explorerRes = await SAFE_API(explorerMsg);
       }
 
@@ -455,7 +455,7 @@ Return ONLY JSON (no markdown): {"email":"the.found@email.com","source":"exact U
         wi++;
         for (const b of websiteEmailRes.content) { if (b.type === "tool_use") addLog(`📧 "${b.input?.query}"`); }
         websiteEmailMsg.push({ role: "assistant", content: websiteEmailRes.content });
-        websiteEmailMsg.push({ role: "user", content: [{ type: "text", text: "Keep searching. Look carefully at ALL snippets for any email address. Then return the JSON." }] });
+        websiteEmailMsg.push({ role: "user", content: websiteEmailRes.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
         websiteEmailRes = await SAFE_API(websiteEmailMsg);
       }
 
@@ -544,7 +544,7 @@ Return ONLY raw JSON (no markdown):
         fi++;
         for (const b of fr.content) { if (b.type === "tool_use") addLog(`🔍 "${b.input?.query}"`); }
         fm.push({ role: "assistant", content: fr.content });
-        fm.push({ role: "user", content: [{ type: "text", text: "Continue and return the JSON." }] });
+        fm.push({ role: "user", content: fr.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
         fr = await SAFE_API(fm);
       }
       addLog(`✅ Done — ${ei + fi} total searches`);
@@ -1024,7 +1024,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
     while (res.stop_reason === "tool_use" && i < 4 && !res._err) {
       i++;
       msgs.push({ role: "assistant", content: res.content });
-      msgs.push({ role: "user", content: [{ type: "text", text: "Return the JSON." }] });
+      msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
       res = await SAFE_API(msgs);
     }
     const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
