@@ -396,9 +396,15 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
         for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
-        msgs.push({ role: "assistant", content: res.content });
-        msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const toolResults = res.content
+          .filter(b => b.type === "tool_use")
+          .map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." }));
+        msgs = [
+          { role: "user", content: prompt },
+          { role: "assistant", content: res.content },
+          { role: "user", content: toolResults }
+        ];
+        await new Promise(resolve => setTimeout(resolve, 2000));
         res = await SAFE_API(msgs);
       }
       addLog(`✅ Done — ${ei} searches run`);
