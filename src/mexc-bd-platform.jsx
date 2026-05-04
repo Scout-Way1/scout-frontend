@@ -378,7 +378,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
   };
 
   const runScout = async (rawHandle) => {
-    const h = cleanHandle(rawHandle || handle);
+    const isWebsite = searchMode === "website";
+    const h = isWebsite ? handle.trim() : cleanHandle(rawHandle || handle);
     if (!h) return;
     setPhase("loading"); setStream(""); setResult(null);
 
@@ -386,7 +387,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
     const addLog = line => { log += line + "\n"; setStream(log); };
 
     try {
-      addLog(`🚀 Scouting @${h}…`);
+      addLog(isWebsite ? `🌐 Scouting ${h}…` : `🚀 Scouting @${h}…`);
       addLog(`🔍 Searching for BD contacts…`);
 
       const isWebsite = searchMode === "website";
@@ -484,7 +485,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
           <div className="flex gap-3 max-w-xl mx-auto">
             <div className="relative flex-1">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">{searchMode === "twitter" ? "🐦" : "🌐"}</span>
-              <input value={handle} onChange={e => setHandle(e.target.value)} onKeyDown={e => e.key === "Enter" && runScout()}
+              <input value={handle} onChange={e => {
+                const val = e.target.value;
+                setHandle(val);
+                if (val.startsWith("http") || val.startsWith("www.")) setSearchMode("website");
+                else if (val.startsWith("@")) setSearchMode("twitter");
+              }} onKeyDown={e => e.key === "Enter" && runScout()}
                 placeholder={searchMode === "twitter" ? "@projecthandle or paste Twitter URL…" : "https://projectwebsite.com"}
                 className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white text-sm outline-none"
                 style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }} />
