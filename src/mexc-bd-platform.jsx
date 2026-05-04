@@ -301,6 +301,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
   const [result,  setResult]  = useState(null);
   const [history, setHistory] = useState([]);
   const [copied,  setCopied]  = useState(null);
+  const [searchMode, setSearchMode] = useState("twitter");
 
   const cleanHandle = raw => {
     if (!raw) return "";
@@ -388,7 +389,11 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       addLog(`🚀 Scouting @${h}…`);
       addLog(`🔍 Searching for BD contacts…`);
 
-      const prompt = "Find BD contact email for crypto project @" + h + ". IMPORTANT: Search these in order: 1) '" + h + " crypto official website' to find their domain, 2) visit their website contact/about page for email, 3) '" + h + " email contact BD' 4) BSCScan or Etherscan token page. Look for any email like contact@, hello@, bd@, info@, partnerships@. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}";
+      const isWebsite = searchMode === "website";
+      const searchTarget = isWebsite ? handle.trim() : "@" + h;
+      const prompt = isWebsite
+        ? "Find BD contact email for the crypto project at website " + handle.trim() + ". Search: 1) visit the website contact/about/team page directly for any email, 2) '" + handle.trim() + " email contact', 3) BSCScan or Etherscan for this project. Look for contact@, hello@, bd@, info@, partnerships@ emails. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"" + handle.trim() + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}"
+        : "Find BD contact email for crypto project @" + h + ". IMPORTANT: Search these in order: 1) '" + h + " crypto official website' to find their domain, 2) visit their website contact/about page for email, 3) '" + h + " email contact BD' 4) BSCScan or Etherscan token page. Look for any email like contact@, hello@, bd@, info@, partnerships@. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
       let res = await SAFE_API(msgs);
@@ -465,12 +470,22 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
             <h2 className="text-white font-bold text-2xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Scout AI</h2>
             <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>LIVE</span>
           </div>
-          <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">Paste any project's Twitter handle — AI fetches their website, scrapes emails, and builds a full BD profile.</p>
+          <p className="text-gray-400 text-sm mb-4 max-w-md mx-auto">AI researches any crypto project and builds a full BD profile with emails, contacts and outreach strategy.</p>
+          <div className="flex gap-2 justify-center mb-4">
+            <button onClick={() => { setSearchMode("twitter"); setHandle(""); }} className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{ background: searchMode === "twitter" ? "linear-gradient(135deg,#ff6a00,#ee0979)" : "rgba(255,255,255,0.07)", color: searchMode === "twitter" ? "white" : "#6b7280" }}>
+              🐦 Twitter Handle
+            </button>
+            <button onClick={() => { setSearchMode("website"); setHandle(""); }} className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{ background: searchMode === "website" ? "linear-gradient(135deg,#ff6a00,#ee0979)" : "rgba(255,255,255,0.07)", color: searchMode === "website" ? "white" : "#6b7280" }}>
+              🌐 Website URL
+            </button>
+          </div>
           <div className="flex gap-3 max-w-xl mx-auto">
             <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">🐦</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">{searchMode === "twitter" ? "🐦" : "🌐"}</span>
               <input value={handle} onChange={e => setHandle(e.target.value)} onKeyDown={e => e.key === "Enter" && runScout()}
-                placeholder="@projecthandle or paste Twitter URL…"
+                placeholder={searchMode === "twitter" ? "@projecthandle or paste Twitter URL…" : "https://projectwebsite.com"}
                 className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white text-sm outline-none"
                 style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }} />
             </div>
