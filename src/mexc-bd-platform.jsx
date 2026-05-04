@@ -107,11 +107,11 @@ const SAFE_API = async (messages) => {
         messages,
       }),
     });
-    if (!res.ok) return { _err: true, stop_reason: "end_turn", content: [{ type: "text", text: "" }] };
     const d = await res.json().catch(() => null);
-    return d || { _err: true, stop_reason: "end_turn", content: [{ type: "text", text: "" }] };
+    if (!res.ok) return Object.assign({ _err: true, stop_reason: "end_turn", content: [] }, d);
+    return d || { _err: true, stop_reason: "end_turn", content: [] };
   } catch (e) {
-    return { _err: true, stop_reason: "end_turn", content: [{ type: "text", text: "" }] };
+    return { _err: true, stop_reason: "end_turn", content: [] };
   }
 };
 
@@ -392,6 +392,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
 
       let msgs = [{ role: "user", content: prompt }];
       let res = await SAFE_API(msgs);
+      // Retry once if rate limited
+      if (res._err || (res.error && res.error.type === "rate_limit_error")) {
+        addLog("⏳ Rate limited — waiting 15 seconds...");
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        res = await SAFE_API(msgs);
+      }
       let ei = 0;
       while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
@@ -404,8 +410,13 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
           { role: "assistant", content: res.content },
           { role: "user", content: toolResults }
         ];
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         res = await SAFE_API(msgs);
+        if (res._err || (res.error && res.error.type === "rate_limit_error")) {
+          addLog("⏳ Rate limited — waiting 15 seconds...");
+          await new Promise(resolve => setTimeout(resolve, 15000));
+          res = await SAFE_API(msgs);
+        }
       }
       addLog(`✅ Done — ${ei} searches run`);
 
