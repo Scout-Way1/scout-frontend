@@ -155,13 +155,18 @@ const sbAddHistory = (entry) => sbFetch("/scout_history", "POST", {
   best_contact_path: entry.bestContactPath || "", confidence: entry.confidence || "",
   description: entry.description || "", full_result: entry.fullResult || null,
 });
-const sbGetPipeline = () => sbFetch("/scout_pipeline?order=created_at.desc");
+const sbGetPipeline = () => sbFetch("/scout_pipeline?order=added_at.desc");
 const sbAddPipeline = (p) => sbFetch("/scout_pipeline", "POST", {
   project_id: String(p.id), name: p.name || "", symbol: p.symbol || "",
   logo: p.logo || "", twitter: p.twitter || "", website: p.website || "",
   chain: p.chain || "", category: p.category || "", stage: p.stage || "",
-  description: p.description || "",
+  description: p.description || "", bd_email: p.bdEmail || "",
+  bd_telegram: p.bdTelegram || "", listing_interest: p.listingInterest || "",
+  bd_score: p.bdScore || null, status: p.status || "New",
+  remarks: JSON.stringify(p.remarks || []),
+  added_at: p.addedAt ? new Date(p.addedAt).toISOString() : new Date().toISOString(),
 });
+const sbUpdatePipeline = (project_id, updates) => sbFetch("/scout_pipeline?project_id=eq." + project_id, "PATCH", updates);
 const sbRemovePipeline = (project_id) => sbFetch("/scout_pipeline?project_id=eq." + project_id, "DELETE");
 
 
@@ -1174,6 +1179,11 @@ export default function App() {
         id: r.project_id, name: r.name, symbol: r.symbol, logo: r.logo,
         twitter: r.twitter, website: r.website, chain: r.chain,
         category: r.category, stage: r.stage, description: r.description,
+        bdEmail: r.bd_email, bdTelegram: r.bd_telegram,
+        listingInterest: r.listing_interest, bdScore: r.bd_score,
+        status: r.status || "New",
+        remarks: typeof r.remarks === "string" ? JSON.parse(r.remarks || "[]") : (r.remarks || []),
+        addedAt: r.added_at || r.created_at,
       })));
       setDbLoading(false);
     });
@@ -1828,7 +1838,7 @@ export default function App() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14 }}>
                         <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>STATUS</div>
-                        <select value={pipeSelected.status||"New"} onChange={function(e){var ns=e.target.value;setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{status:ns}):l;});});setPipeSelected(function(prev){return Object.assign({},prev,{status:ns});});}} className="ticker"
+                        <select value={pipeSelected.status||"New"} onChange={function(e){var ns=e.target.value;setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{status:ns}):l;});});setPipeSelected(function(prev){return Object.assign({},prev,{status:ns});});sbUpdatePipeline(String(pipeSelected.id),{status:ns});}} className="ticker"
                           style={{ width:"100%",padding:"6px 8px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",color:"#c9d1d9",borderRadius:3,fontSize:11,outline:"none",cursor:"pointer",appearance:"none" }}>
                           {["New","Contacted","In Discussion","Listing Agreed","On Hold","Rejected"].map(function(s){return <option key={s} value={s} style={{background:"#0d1117",color:"#c9d1d9"}}>{s}</option>;})}
                         </select>
@@ -1879,8 +1889,10 @@ export default function App() {
                           <button onClick={function(){
                             if(!pipeNoteText.trim())return;
                             var r={text:pipeNoteText.trim(),ts:new Date()};
-                            setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{remarks:[...(l.remarks||[]),r]}):l;});});
-                            setPipeSelected(function(prev){return Object.assign({},prev,{remarks:[...(prev.remarks||[]),r]});});
+                            var newRemarks=[...(pipeSelected.remarks||[]),r];
+                            setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{remarks:newRemarks}):l;});});
+                            setPipeSelected(function(prev){return Object.assign({},prev,{remarks:newRemarks});});
+                            sbUpdatePipeline(String(pipeSelected.id),{remarks:JSON.stringify(newRemarks)});
                             setPipeNoteText("");
                           }} disabled={!pipeNoteText.trim()} className="ticker"
                             style={{ padding:"5px 14px",background:pipeNoteText.trim()?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.03)",border:"1px solid "+(pipeNoteText.trim()?"rgba(251,191,36,0.3)":"rgba(255,255,255,0.06)"),color:pipeNoteText.trim()?"#fbbf24":"#374151",borderRadius:3,cursor:pipeNoteText.trim()?"pointer":"default",fontSize:10,letterSpacing:"0.06em" }}>
