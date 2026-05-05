@@ -1145,6 +1145,8 @@ export default function App() {
     sbAddHistory(entry);
   };
   const [historyModal, setHistoryModal] = useState(null);
+  const [histFilter, setHistFilter] = useState("all");
+  const [histSearch, setHistSearch] = useState("");
 
 
 
@@ -1524,62 +1526,101 @@ export default function App() {
 
         {page === "history" && (
           <div className="fade-in">
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)", flexWrap: "wrap", gap: 16 }}>
               <div>
-                <div className="ticker" style={{ color: "#4a5568", fontSize: 10, marginBottom: 4 }}>RESEARCH HISTORY</div>
-                <h2 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 22, margin: 0 }}>Contact Intelligence</h2>
+                <div className="ticker" style={{ fontSize: 10, color: "#4a5568", letterSpacing: "0.1em", marginBottom: 4 }}>RESEARCH HISTORY</div>
+                <h2 className="sans" style={{ fontSize: 24, fontWeight: 700, color: "#f0f6fc", margin: 0, letterSpacing: "-0.02em" }}>Contact Intelligence</h2>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span className="ticker" style={{ color: "#4a5568", fontSize: 11 }}>{contactHistory.length} RECORDS</span>
-                {contactHistory.length > 0 && (
-                  <button onClick={() => { setContactHistory([]); sbFetch("/scout_history", "DELETE"); }} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>
-                    CLEAR ALL
-                  </button>
-                )}
-              </div>
-            </div>
-            {contactHistory.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.1)", borderRadius: 8 }}>
-                <div className="ticker" style={{ color: "#4a5568", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
-                <p className="sans" style={{ color: "#4a5568", fontSize: 13 }}>Research history will appear here after using Scout AI</p>
-              </div>
-            ) : (
-              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
-                <div className="ticker" style={{ display: "grid", gridTemplateColumns: "2fr 80px 2fr 120px 80px 120px", padding: "8px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", fontSize: 10 }}>
-                  <span>PROJECT</span><span>SOURCE</span><span>BD EMAIL</span><span>BEST PATH</span><span>CONFIDENCE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
-                </div>
-                {contactHistory.map((item, i) => {
-                  var hasEmail = item.bdEmail && item.bdEmail !== "Unknown";
-                  var confColor = item.confidence === "High" ? "#10b981" : item.confidence === "Medium" ? "#fbbf24" : "#6b7280";
+              <div style={{ display: "flex", gap: 24 }}>
+                {[["TOTAL", contactHistory.length, "#c9d1d9"], ["EMAILS FOUND", contactHistory.filter(function(h){return h.bdEmail && h.bdEmail!=="Unknown";}).length, "#10b981"], ["NO EMAIL", contactHistory.filter(function(h){return !h.bdEmail||h.bdEmail==="Unknown";}).length, "#ef4444"]].map(function(row) {
                   return (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 80px 2fr 120px 80px 120px", padding: "11px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: 4, background: "rgba(251,191,36,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{item.logo || "◎"}</div>
-                        <div>
-                          <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13 }}>{item.name}</div>
-                          <div className="ticker" style={{ color: "#4a5568", fontSize: 10 }}>{item.symbol}{item.chain ? " · " + item.chain : ""}</div>
-                        </div>
-                      </div>
-                      <span className="ticker" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 2, background: "rgba(251,191,36,0.08)", color: "#fbbf24", display: "inline-block", width: "fit-content" }}>{item.source}</span>
-                      <div>
-                        {hasEmail
-                          ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span className="ticker" style={{ color: "#10b981", fontSize: 11 }}>{item.bdEmail}</span>
-                              <button onClick={() => navigator.clipboard.writeText(item.bdEmail)} style={{ padding: "1px 6px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>COPY</button>
-                            </div>
-                          : <span className="ticker" style={{ color: "#374151", fontSize: 10 }}>NOT FOUND</span>}
-                      </div>
-                      <span className="ticker" style={{ color: "#6b7280", fontSize: 10 }}>{(item.bestContactPath || "—").slice(0, 20)}</span>
-                      <span className="ticker" style={{ color: confColor, fontSize: 10 }}>{item.confidence || "—"}</span>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 5 }}>
-                        {item.fullResult && (
-                          <button onClick={() => setHistoryModal(item)} style={{ padding: "3px 8px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>READ</button>
-                        )}
-                        <button onClick={() => { setPage("scout"); }} style={{ padding: "3px 8px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#6b7280", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>RE-SCOUT</button>
-                      </div>
+                    <div key={row[0]} style={{ textAlign: "right" }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 2 }}>{row[0]}</div>
+                      <div className="sans" style={{ fontSize: 22, fontWeight: 700, color: row[2], lineHeight: 1 }}>{row[1]}</div>
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+              {[["all","ALL"],["email","EMAIL FOUND"],["noemail","NO EMAIL"]].map(function(opt) {
+                var active = histFilter === opt[0];
+                return (
+                  <button key={opt[0]} onClick={function(){setHistFilter(opt[0]);}} className="ticker"
+                    style={{ padding: "6px 14px", borderRadius: 3, border: "1px solid " + (active ? "rgba(251,191,36,0.35)" : "rgba(255,255,255,0.06)"), background: active ? "rgba(251,191,36,0.08)" : "transparent", color: active ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 10, letterSpacing: "0.06em" }}>
+                    {opt[1]}
+                  </button>
+                );
+              })}
+              <div style={{ flex: 1 }} />
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#374151", fontSize: 12 }}>⌕</span>
+                <input value={histSearch} onChange={function(e){setHistSearch(e.target.value);}} placeholder="SEARCH..."
+                  className="ticker" style={{ paddingLeft: 28, paddingRight: 12, paddingTop: 7, paddingBottom: 7, background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 3, color: "#c9d1d9", fontSize: 11, outline: "none", width: 160 }} />
+              </div>
+              {contactHistory.length > 0 && (
+                <button onClick={function(){setContactHistory([]); sbFetch("/scout_history","DELETE");}} className="ticker"
+                  style={{ padding: "6px 12px", borderRadius: 3, border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.06)", color: "#f87171", cursor: "pointer", fontSize: 10 }}>
+                  CLEAR ALL
+                </button>
+              )}
+            </div>
+
+            {contactHistory.filter(function(h){
+              var mf = histFilter==="all" || (histFilter==="email"&&h.bdEmail&&h.bdEmail!=="Unknown") || (histFilter==="noemail"&&(!h.bdEmail||h.bdEmail==="Unknown"));
+              var ms = !histSearch || h.name.toLowerCase().includes(histSearch.toLowerCase()) || (h.symbol||"").toLowerCase().includes(histSearch.toLowerCase());
+              return mf && ms;
+            }).length === 0 ? (
+              <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.08)", borderRadius: 6 }}>
+                <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
+                <p className="sans" style={{ color: "#374151", fontSize: 13 }}>Use Scout AI to research projects — results appear here automatically</p>
+              </div>
+            ) : (
+              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
+                <div style={{ minWidth: 860 }}>
+                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 155px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                    <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>BD EMAIL</span><span>CONFIDENCE</span><span>SCORE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
+                  </div>
+                  {contactHistory.filter(function(h){
+                    var mf = histFilter==="all" || (histFilter==="email"&&h.bdEmail&&h.bdEmail!=="Unknown") || (histFilter==="noemail"&&(!h.bdEmail||h.bdEmail==="Unknown"));
+                    var ms = !histSearch || h.name.toLowerCase().includes(histSearch.toLowerCase()) || (h.symbol||"").toLowerCase().includes(histSearch.toLowerCase());
+                    return mf && ms;
+                  }).map(function(item, i) {
+                    var hasEmail = item.bdEmail && item.bdEmail !== "Unknown";
+                    var score = item.fullResult && item.fullResult.bdScore;
+                    var confColor = { High: "#10b981", Medium: "#fbbf24", Low: "#ef4444" }[item.confidence] || "#6b7280";
+                    var scoreCol = score >= 70 ? "#10b981" : score >= 40 ? "#fbbf24" : "#ef4444";
+                    return (
+                      <div key={i} className="row-hover" onClick={function(){setHistoryModal(item);}}
+                        style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 155px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 4, background: hasEmail ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.05)", border: "1px solid " + (hasEmail ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{item.logo||"🪙"}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
+                            <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{item.ts ? new Date(item.ts).toLocaleDateString() : ""}</div>
+                          </div>
+                        </div>
+                        <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, whiteSpace: "nowrap" }}>{item.symbol}</span>
+                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.chain||"—"}</span>
+                        <div style={{ paddingRight: 8 }} onClick={function(e){e.stopPropagation();}}>
+                          {hasEmail
+                            ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{item.bdEmail}</span>
+                                <button onClick={function(){navigator.clipboard.writeText(item.bdEmail);}} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8, flexShrink: 0 }}>⎘</button>
+                              </div>
+                            : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
+                        </div>
+                        <span className="ticker" style={{ fontSize: 10, color: confColor, whiteSpace: "nowrap" }}>{(item.confidence||"—").toUpperCase()}</span>
+                        <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
+                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
+                          <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
+                          <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
