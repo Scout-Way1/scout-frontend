@@ -344,6 +344,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   const [history, setHistory] = useState([]);
   const [copied,  setCopied]  = useState(null);
   const [searchMode, setSearchMode] = useState("twitter");
+  const forceRerun = useRef(false);
 
   const cleanHandle = raw => {
     if (!raw) return "";
@@ -439,9 +440,9 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 
       let msgs = [{ role: "user", content: prompt }];
 
-      // Check cache first — wait briefly if DB still loading
+      // Check cache first — skip if user clicked Rerun
       const hist = contactHistory || [];
-      if (hist.length > 0) {
+      if (!forceRerun.current && hist.length > 0) {
         const cached = hist.find(item => {
           const itemTwitter = (item.twitter || "").toLowerCase().replace("@", "");
           const itemName = (item.name || "").toLowerCase();
@@ -455,6 +456,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           return;
         }
       }
+      forceRerun.current = false;
 
       let res = await SAFE_API(msgs);
 
@@ -760,6 +762,17 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
             }} className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02]"
               style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
               ➕ Add to BD Pipeline
+            </button>
+            <button onClick={() => {
+              const confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
+              if (confirmed) {
+                forceRerun.current = true;
+                setResult(null);
+                setPhase("idle");
+                setTimeout(() => runScout(), 50);
+              }
+            }} className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}>
+              🔄 Rerun
             </button>
             <button onClick={() => { setPhase("idle"); setResult(null); setHandle(""); }} className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
               🔍 Scout Another
