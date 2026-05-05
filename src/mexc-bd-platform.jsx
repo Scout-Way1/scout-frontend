@@ -162,7 +162,7 @@ function Logo({ item, size = 28, radius = 4, fontSize }) {
   if (handle && !failed) {
     return (
       <div style={common}>
-        <img src={"https://unavatar.io/twitter/" + handle + "?fallback=false"} alt=""
+        <img src={"https://unavatar.io/twitter/" + handle} alt=""
           onError={function(){setFailed(true);}}
           style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
