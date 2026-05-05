@@ -344,7 +344,15 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   const [history, setHistory] = useState([]);
   const [copied,  setCopied]  = useState(null);
   const [searchMode, setSearchMode] = useState("twitter");
+  const [resultTab, setResultTab] = useState("overview");
+  const [externalLink, setExternalLink] = useState(null);
   const forceRerun = useRef(false);
+
+  const copy = function(text, key) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(function() { setCopied(null); }, 2000);
+  };
 
   const cleanHandle = raw => {
     if (!raw) return "";
@@ -424,7 +432,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
     const isWebsite = searchMode === "website";
     const h = isWebsite ? handle.trim() : cleanHandle(rawHandle || handle);
     if (!h) return;
-    setPhase("loading"); setStream(""); setResult(null);
+    setPhase("loading"); setStream(""); setResult(null); setResultTab("overview");
 
     let log = "";
     const addLog = line => { log += line + "\n"; setStream(log); };
@@ -522,7 +530,6 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
     }
   };
 
-  const copy = (t, k) => { navigator.clipboard.writeText(t); setCopied(k); setTimeout(() => setCopied(null), 2000); };
   const CONF = { High: { bg: "rgba(16,185,129,0.14)", c: "#10b981" }, Medium: { bg: "rgba(245,158,11,0.14)", c: "#f59e0b" }, Low: { bg: "rgba(239,68,68,0.14)", c: "#ef4444" } };
   const BD = r => r >= 80 ? "#10b981" : r >= 60 ? "#fbbf24" : "#ef4444";
   const h = cleanHandle(handle);
@@ -673,164 +680,236 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       )}
 
       {phase === "done" && result && (
-        <div className="space-y-5">
-          <div className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.09)" }}>
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>{result.emoji || "🔍"}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 flex-wrap mb-1">
-                  <h3 className="text-white font-bold text-2xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{result.projectName}</h3>
-                  <span className="text-gray-500 font-mono text-sm">{result.symbol}</span>
-                  <StagePill stage={result.stage || "Listed"} />
-                  {result._searches > 0 && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(96,165,250,0.12)", color: "#60a5fa" }}>🔍 {result._searches} searches</span>}
-                </div>
-                <p className="text-orange-400 font-medium text-sm mb-1">{result.tagline}</p>
-                <p className="text-gray-400 text-sm leading-relaxed">{result.description}</p>
-              </div>
-              <div className="text-center flex-shrink-0">
-                <div className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center" style={{ background: "rgba(" + ((result.bdScore || 50) >= 80 ? "16,185,129" : (result.bdScore || 50) >= 60 ? "245,158,11" : "239,68,68") + ",0.12)" }}>
-                  <p className="font-bold text-xl leading-none" style={{ color: BD(result.bdScore || 50), fontFamily: "'Space Grotesk',sans-serif" }}>{result.bdScore || "—"}</p>
-                  <p className="text-xs mt-0.5" style={{ color: BD(result.bdScore || 50) }}>BD</p>
-                </div>
-              </div>
-            </div>
-            {result.tags && result.tags.length > 0 && <div className="flex flex-wrap gap-2 mt-4">{result.tags.map(t => <span key={t} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>{t}</span>)}</div>}
-          </div>
+        <div className="fade-in">
 
-          <div className="grid md:grid-cols-2 gap-5">
-            <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white font-semibold text-sm mb-4">📊 Project Details</p>
-              {[["Category", result.category], ["Chain", result.chain], ["TGE", result.tge], ["Funding", result.fundraising]].map(([l, v]) => (
-                <div key={l} className="flex items-start justify-between gap-4 mb-2.5"><span className="text-gray-600 text-xs">{l}</span><span className="text-gray-200 text-xs text-right">{v || "—"}</span></div>
-              ))}
+          {/* HEADER CARD */}
+          <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 6, padding: 24, marginBottom: 16, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(251,191,36,0.04)", pointerEvents: "none" }} />
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 8, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>{result.emoji || "🔍"}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                  <h2 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 22, margin: 0, letterSpacing: "-0.02em" }}>{result.projectName}</h2>
+                  {result.symbol && <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, background: "rgba(251,191,36,0.1)", padding: "2px 8px", borderRadius: 2 }}>{result.symbol}</span>}
+                  {result.stage && <span className="ticker" style={{ color: "#10b981", fontSize: 10, background: "rgba(16,185,129,0.1)", padding: "2px 8px", borderRadius: 2, border: "1px solid rgba(16,185,129,0.2)" }}>{result.stage.toUpperCase()}</span>}
+                </div>
+                {result.tagline && <p style={{ color: "#fbbf24", fontSize: 13, margin: "0 0 6px", fontFamily: "IBM Plex Sans, sans-serif" }}>{result.tagline}</p>}
+                {result.description && <p className="sans" style={{ color: "#6b7280", fontSize: 13, margin: 0, lineHeight: 1.6 }}>{result.description}</p>}
+              </div>
+              <div style={{ flexShrink: 0, textAlign: "center", background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "14px 20px" }}>
+                <div className="sans" style={{ fontSize: 36, fontWeight: 700, color: BD(result.bdScore || 50), lineHeight: 1 }}>{result.bdScore || "—"}</div>
+                <div className="ticker" style={{ fontSize: 9, color: "#4a5568", marginTop: 4, letterSpacing: "0.1em" }}>SCORE</div>
+                {result.listingInterest && <div className="ticker" style={{ fontSize: 10, color: "#fbbf24", marginTop: 6, background: "rgba(251,191,36,0.08)", padding: "2px 8px", borderRadius: 2 }}>{result.listingInterest.toUpperCase()}</div>}
+              </div>
             </div>
-            <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <p className="text-white font-semibold text-sm mb-4">🔗 Links</p>
-              {[["🌐", "Website", result.website], ["🐦", "Twitter", result.twitter], ["💬", "Telegram", result.telegram], ["💻", "GitHub", result.github]].map(([icon, l, v]) => (
-                <div key={l} className="flex items-center justify-between gap-4 mb-2.5">
-                  <span className="text-gray-600 text-xs">{icon} {l}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-400 text-xs truncate max-w-[160px]">{v && v !== "Unknown" ? v : "—"}</span>
-                    {v && v !== "Unknown" && <button onClick={() => copy(v, l)} className="text-xs px-1.5 py-0.5 rounded" style={{ background: copied === l ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.07)", color: copied === l ? "#10b981" : "#6b7280" }}>{copied === l ? "✓" : "⎘"}</button>}
+
+            {/* Meta row */}
+            <div style={{ display: "flex", gap: 24, marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap" }}>
+              {[["CHAIN", result.chain], ["CATEGORY", result.category], ["WEBSITE", result.website], ["TWITTER", result.twitter], ["TELEGRAM", result.telegram]].map(function(row) {
+                if (!row[1] || row[1] === "Unknown" || row[1] === "—") return null;
+                var urlMap = { WEBSITE: "https://" + (row[1]||"").replace(/^https?:\/\//,""), TWITTER: "https://twitter.com/" + (row[1]||"").replace("@",""), TELEGRAM: "https://t.me/" + (row[1]||"").replace("@","").replace("t.me/","") };
+                var url = urlMap[row[0]];
+                return (
+                  <div key={row[0]}>
+                    <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 3 }}>{row[0]}</div>
+                    {url
+                      ? <button onClick={function() { setExternalLink({ url: url, label: row[0] + ": " + row[1] }); }} className="ticker" style={{ fontSize: 11, color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}>{row[1]} ↗</button>
+                      : <div className="ticker" style={{ fontSize: 11, color: "#9ca3af" }}>{row[1]}</div>}
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              <div style={{ marginLeft: "auto" }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 3 }}>DATA QUALITY</div>
+                <div className="ticker" style={{ fontSize: 11, color: "#10b981" }}>{(result.dataQuality || "—").toUpperCase()}</div>
+              </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <p className="text-white font-semibold text-sm">📬 Contact Intelligence</p>
-              {result.dataQuality && <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.dataQuality] && CONF[result.dataQuality].bg, color: CONF[result.dataQuality] && CONF[result.dataQuality].c }}>{result.dataQuality === "High" ? "✅" : "⚠️"} {result.dataQuality} Quality</span>}
-            </div>
-            <div className="rounded-xl p-4 mb-4 flex items-start gap-3" style={{ background: result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.07)" : "rgba(245,158,11,0.07)", border: "1px solid " + (result._emails && result._emails.length > 0 ? "rgba(16,185,129,0.22)" : "rgba(245,158,11,0.22)") }}>
-              <span className="text-2xl mt-0.5">{result._emails && result._emails.length > 0 ? "✅" : "💡"}</span>
-              <div className="flex-1"><p className="font-bold text-sm mb-1" style={{ color: result._emails && result._emails.length > 0 ? "#10b981" : "#f59e0b" }}>Best Contact Path</p><p className="text-white text-sm font-medium">{result.bestContactPath}</p></div>
-            </div>
-            {result._emails && result._emails.length > 0 && (
-              <div className="rounded-xl p-3 mb-4" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                <p className="text-emerald-400 text-xs font-bold mb-2 uppercase">📧 Emails scraped from website</p>
-                <div className="flex flex-wrap gap-2">
-                  {result._emails.map((email, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                      <span className="text-emerald-300 font-mono text-sm font-bold">{email}</span>
-                      <button onClick={() => copy(email, "de" + i)} className="text-xs px-2 py-0.5 rounded" style={{ background: copied === "de" + i ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)", color: copied === "de" + i ? "#10b981" : "#9ca3af" }}>{copied === "de" + i ? "✓" : "Copy"}</button>
-                    </div>
-                  ))}
+            {/* Contract address */}
+            {result.contractAddress && result.contractAddress !== "Unknown" && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 10 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", flexShrink: 0 }}>CONTRACT</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 3, padding: "5px 12px", flex: 1 }}>
+                  <span className="ticker" style={{ color: "#6b7280", fontSize: 11, flex: 1 }}>{result.contractAddress}</span>
+                  <button onClick={function() { copy(result.contractAddress, "contract"); }} className="ticker" style={{ padding: "2px 8px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.15)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, flexShrink: 0 }}>{copied === "contract" ? "✓ COPIED" : "COPY"}</button>
+                  <button onClick={function() { setExternalLink({ url: "https://etherscan.io/token/" + result.contractAddress, label: "Etherscan Token" }); }} className="ticker" style={{ padding: "2px 8px", background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.15)", color: "#60a5fa", borderRadius: 2, cursor: "pointer", fontSize: 9, flexShrink: 0 }}>ETHERSCAN ↗</button>
                 </div>
               </div>
             )}
-            {result.bdEmail && result.bdEmail !== "Unknown" && (
-              <div className="flex items-center justify-between rounded-xl p-3 mb-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div><p className="text-gray-600 text-xs mb-1">BD Email</p><p className="text-orange-400 font-medium">{result.bdEmail}</p></div>
-                <button onClick={() => copy(result.bdEmail, "bdE")} className="text-xs px-2 py-1 rounded" style={{ background: copied === "bdE" ? "rgba(16,185,129,0.15)" : "rgba(255,106,0,0.12)", color: copied === "bdE" ? "#10b981" : "#ff6a00" }}>{copied === "bdE" ? "✓" : "Copy"}</button>
-              </div>
-            )}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {result.contacts && result.contacts.map((c, i) => (
-                <div key={i} className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div><p className="text-white font-semibold text-sm">{c.name}</p><p className="text-gray-500 text-xs">{c.role}</p></div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: CONF[c.confidence] && CONF[c.confidence].bg, color: CONF[c.confidence] && CONF[c.confidence].c }}>{c.confidence}</span>
-                      {c.bestPath && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>via {c.bestPath}</span>}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 text-xs">
-                    {c.email && c.email !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-gray-300 truncate">📧 {c.email}</span><button onClick={() => copy(c.email, "ce" + i)} className="px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: copied === "ce" + i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === "ce" + i ? "#10b981" : "#6b7280" }}>{copied === "ce" + i ? "✓" : "⎘"}</button></div>}
-                    {!c.email && <p className="text-amber-700 italic">No email — use path above</p>}
-                    {c.twitter && c.twitter !== "Unknown" && <div className="flex items-center justify-between gap-1"><span className="text-blue-400">🐦 {c.twitter}</span><button onClick={() => copy(c.twitter, "ct" + i)} className="px-1.5 py-0.5 rounded" style={{ background: copied === "ct" + i ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.08)", color: copied === "ct" + i ? "#10b981" : "#6b7280" }}>{copied === "ct" + i ? "✓" : "⎘"}</button></div>}
-                    {c.telegram && c.telegram !== "Unknown" && <p className="text-sky-400">💬 {c.telegram}</p>}
-                    {c.linkedin && c.linkedin !== "Unknown" && <p className="text-blue-300 truncate">💼 {c.linkedin}</p>}
-                    {c.source && <p className="text-gray-700">📌 {c.source}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
-            <div className="rounded-2xl p-5" style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.04))", border: "1px solid rgba(99,102,241,0.18)" }}>
-              <p className="text-indigo-400 font-bold text-xs uppercase mb-3">💡 Outreach Strategy</p>
-              <p className="text-gray-300 text-sm leading-relaxed mb-4">{result.outreachStrategy}</p>
-              <div className="rounded-xl p-3" style={{ background: "rgba(255,106,0,0.08)", border: "1px solid rgba(255,106,0,0.2)" }}>
-                <p className="text-orange-400 text-xs font-semibold mb-1">🎯 Opening Hook</p>
-                <p className="text-gray-200 text-sm italic">"{result.pitchAngle}"</p>
+          {/* TABS */}
+          <div style={{ display: "flex", gap: 2, marginBottom: 12 }}>
+            {["overview", "contacts", "strategy", "summary"].map(function(t) {
+              return (
+                <button key={t} onClick={function() { setResultTab(t); }} className="ticker"
+                  style={{ padding: "7px 16px", borderRadius: 3, border: "1px solid " + (resultTab === t ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.06)"), background: resultTab === t ? "rgba(251,191,36,0.08)" : "transparent", color: resultTab === t ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.15s" }}>
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* OVERVIEW TAB */}
+          {resultTab === "overview" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ background: result.bdEmail && result.bdEmail !== "Unknown" ? "rgba(16,185,129,0.05)" : "#0d1117", border: "1px solid " + (result.bdEmail && result.bdEmail !== "Unknown" ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.06)"), borderRadius: 6, padding: 16 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>BD EMAIL</div>
+                {result.bdEmail && result.bdEmail !== "Unknown"
+                  ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="ticker" style={{ color: "#10b981", fontSize: 13, fontWeight: 500 }}>{result.bdEmail}</span>
+                      <button onClick={function() { copy(result.bdEmail, "email"); }} className="ticker" style={{ padding: "2px 8px", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, flexShrink: 0 }}>{copied === "email" ? "✓ COPIED" : "COPY"}</button>
+                    </div>
+                  : <span className="ticker" style={{ color: "#374151", fontSize: 12 }}>NOT FOUND</span>}
               </div>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <p className="text-white font-semibold text-sm mb-3">📈 Listing Assessment</p>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-gray-500 text-xs">Interest:</span>
-                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: CONF[result.listingInterest] && CONF[result.listingInterest].bg, color: CONF[result.listingInterest] && CONF[result.listingInterest].c }}>{result.listingInterest}</span>
-                </div>
-                <p className="text-gray-400 text-xs">{result.listingInterestReason}</p>
+              <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 16 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>TELEGRAM</div>
+                {result.bdTelegram && result.bdTelegram !== "Unknown"
+                  ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="ticker" style={{ color: "#60a5fa", fontSize: 13 }}>{result.bdTelegram}</span>
+                      <button onClick={function() { copy(result.bdTelegram, "tg"); }} className="ticker" style={{ padding: "2px 8px", background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.2)", color: "#60a5fa", borderRadius: 2, cursor: "pointer", fontSize: 9, flexShrink: 0 }}>{copied === "tg" ? "✓ COPIED" : "COPY"}</button>
+                    </div>
+                  : <span className="ticker" style={{ color: "#374151", fontSize: 12 }}>NOT FOUND</span>}
               </div>
-              {result.redFlags && result.redFlags !== "None" && (
-                <div className="rounded-2xl p-4" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
-                  <p className="text-red-400 font-semibold text-xs mb-1.5">⚠️ Red Flags</p>
-                  <p className="text-gray-400 text-xs">{result.redFlags}</p>
+              <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 16, gridColumn: "1 / -1" }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>BEST CONTACT PATH</div>
+                <p className="sans" style={{ color: "#c9d1d9", fontSize: 13, margin: 0, lineHeight: 1.6 }}>{result.bestContactPath || "—"}</p>
+              </div>
+              {result._emails && result._emails.length > 0 && (
+                <div style={{ background: "rgba(16,185,129,0.03)", border: "1px solid rgba(16,185,129,0.12)", borderRadius: 6, padding: 16, gridColumn: "1 / -1" }}>
+                  <div className="ticker" style={{ fontSize: 9, color: "#10b981", letterSpacing: "0.1em", marginBottom: 10 }}>ALL EMAILS FOUND</div>
+                  {result._emails.map(function(email, i) {
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <span className="ticker" style={{ color: "#10b981", fontSize: 12 }}>{email}</span>
+                        <button onClick={function() { copy(email, "e" + i); }} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9 }}>{copied === "e" + i ? "✓" : "⎘"}</button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
-
-          {result._log && (
-            <details className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-              <summary className="px-5 py-3 text-xs cursor-pointer" style={{ background: "rgba(255,255,255,0.02)", color: "#6b7280", listStyle: "none" }}>🔍 {result._searches} searches run · click to view log</summary>
-              <div className="px-5 pb-4 pt-2 font-mono text-xs" style={{ background: "#0a0d14" }}>
-                {result._log.split("\n").filter(Boolean).map((line, i) => (
-                  <div key={i} style={{ color: line.startsWith("🔍") ? "#60a5fa" : line.startsWith("✅") ? "#34d399" : "#4b5563", lineHeight: "1.6" }}>{line}</div>
-                ))}
-              </div>
-            </details>
           )}
 
-          <div className="flex gap-3">
-            <button onClick={() => {
-              onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, trendScore: result.trendScore || 70, twitter: result.twitter, website: result.website, telegram: result.telegram, tags: result.tags || [] });
-            }} className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02]"
-              style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-              ➕ Add to Pipeline
+          {/* CONTACTS TAB */}
+          {resultTab === "contacts" && (
+            <div>
+              {result.contacts && result.contacts.length > 0
+                ? <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
+                    <div className="ticker" style={{ display: "grid", gridTemplateColumns: "150px 130px 1fr 100px", padding: "8px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                      <span>NAME</span><span>ROLE</span><span>CONTACT</span><span>CONFIDENCE</span>
+                    </div>
+                    {result.contacts.map(function(c, i) {
+                      var confColors = { High: { bg: "rgba(16,185,129,0.1)", c: "#10b981" }, Medium: { bg: "rgba(251,191,36,0.1)", c: "#fbbf24" }, Low: { bg: "rgba(239,68,68,0.1)", c: "#ef4444" } };
+                      var conf = confColors[c.confidence] || confColors.Low;
+                      return (
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "150px 130px 1fr 100px", padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                          <span className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13 }}>{c.name}</span>
+                          <span className="ticker" style={{ color: "#6b7280", fontSize: 10 }}>{c.role}</span>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            {c.email && c.email !== "Unknown" && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <span className="ticker" style={{ color: "#10b981", fontSize: 11 }}>{c.email}</span>
+                                <button onClick={function() { copy(c.email, "ci" + i); }} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8 }}>{copied === "ci" + i ? "✓" : "⎘"}</button>
+                              </div>
+                            )}
+                            {c.twitter && c.twitter !== "Unknown" && <button onClick={function() { setExternalLink({ url: "https://twitter.com/" + c.twitter.replace("@",""), label: "Twitter: " + c.twitter }); }} className="ticker" style={{ fontSize: 11, color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer" }}>{c.twitter} ↗</button>}
+                            {c.linkedin && c.linkedin !== "Unknown" && <button onClick={function() { setExternalLink({ url: "https://" + c.linkedin.replace(/^https?:\/\//,""), label: "LinkedIn" }); }} className="ticker" style={{ fontSize: 11, color: "#818cf8", background: "none", border: "none", padding: 0, cursor: "pointer" }}>💼 LinkedIn ↗</button>}
+                          </div>
+                          <span className="ticker" style={{ fontSize: 10, padding: "2px 7px", borderRadius: 2, background: conf.bg, color: conf.c }}>{(c.confidence||"").toUpperCase()}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                : <div style={{ textAlign: "center", padding: "40px 0", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: 6 }}>
+                    <div className="ticker" style={{ color: "#374151", fontSize: 11 }}>NO CONTACTS FOUND</div>
+                  </div>}
+            </div>
+          )}
+
+          {/* STRATEGY TAB */}
+          {resultTab === "strategy" && (
+            <div>
+              <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 6, padding: 20, marginBottom: 12 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#fbbf24", letterSpacing: "0.1em", marginBottom: 12 }}>OUTREACH STRATEGY</div>
+                <p className="sans" style={{ color: "#c9d1d9", fontSize: 14, lineHeight: 1.8, margin: 0 }}>{result.bestApproach || result.outreachStrategy || "No strategy generated."}</p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[["LISTING INTEREST", result.listingInterest || "—", "#fbbf24"], ["SCORE", (result.bdScore || "—") + " / 100", BD(result.bdScore || 50)], ["DATA QUALITY", result.dataQuality || "—", "#10b981"]].map(function(row) {
+                  return (
+                    <div key={row[0]} style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 16, textAlign: "center" }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>{row[0]}</div>
+                      <div className="sans" style={{ fontSize: 20, fontWeight: 700, color: row[2] }}>{row[1]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SUMMARY TAB */}
+          {resultTab === "summary" && (
+            <div>
+              <div style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 24, marginBottom: 12 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 16 }}>FULL PROJECT SUMMARY</div>
+                {(result.description || "No summary available.").split("\n\n").map(function(para, i) {
+                  return <p key={i} className="sans" style={{ color: i === 0 ? "#c9d1d9" : "#6b7280", fontSize: 14, lineHeight: 1.8, margin: "0 0 16px" }}>{para}</p>;
+                })}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                {[["CATEGORY", result.category], ["CHAIN", result.chain], ["STAGE", result.stage], ["WEBSITE", result.website], ["TGE", result.tge], ["FUNDING", result.fundraising]].map(function(row) {
+                  if (!row[1] || row[1] === "Unknown") return null;
+                  return (
+                    <div key={row[0]} style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "12px 14px" }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 6 }}>{row[0]}</div>
+                      <div className="sans" style={{ fontSize: 13, color: "#c9d1d9", fontWeight: 500 }}>{row[1]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ACTION BUTTONS */}
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={function() { onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, trendScore: result.trendScore || 70, twitter: result.twitter, website: result.website, telegram: result.telegram, tags: result.tags || [] }); }} className="ticker"
+              style={{ flex: 1, padding: "11px 0", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.08)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+              + ADD TO PIPELINE
             </button>
-            <button onClick={() => {
-              const confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
-              if (confirmed) {
-                forceRerun.current = true;
-                const currentHandle = handle;
-                setResult(null);
-                setPhase("loading");
-                setStream("");
-                runScout(currentHandle);
-              }
-            }} className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}>
-              🔄 Rerun
+            <button onClick={function() {
+              var confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
+              if (confirmed) { forceRerun.current = true; var h = handle; setResult(null); setPhase("loading"); setStream(""); runScout(h); }
+            }} className="ticker" style={{ padding: "11px 20px", borderRadius: 4, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.06)", color: "#a5b4fc", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+              ↺ RERUN
             </button>
-            <button onClick={() => { setPhase("idle"); setResult(null); setHandle(""); }} className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
-              🔍 Scout Another
+            <button onClick={function() { setPhase("idle"); setResult(null); setHandle(""); }} className="ticker"
+              style={{ padding: "11px 20px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#4a5568", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+              NEW SEARCH
             </button>
           </div>
+
+          {/* EXTERNAL LINK MODAL */}
+          {externalLink && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={function() { setExternalLink(null); }}>
+              <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 6, padding: 28, maxWidth: 400, width: "100%" }} onClick={function(e) { e.stopPropagation(); }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#fbbf24", letterSpacing: "0.1em", marginBottom: 14 }}>EXTERNAL LINK</div>
+                <p className="sans" style={{ color: "#c9d1d9", fontSize: 14, margin: "0 0 10px" }}>You are leaving Scout and visiting:</p>
+                <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "10px 14px", marginBottom: 14 }}>
+                  <div className="ticker" style={{ fontSize: 10, color: "#6b7280", marginBottom: 4 }}>{externalLink.label}</div>
+                  <div className="ticker" style={{ fontSize: 11, color: "#60a5fa", wordBreak: "break-all" }}>{externalLink.url}</div>
+                </div>
+                <p className="sans" style={{ color: "#4a5568", fontSize: 12, marginBottom: 20, lineHeight: 1.6 }}>Scout is not responsible for the content of external sites. Continue?</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={function() { window.open(externalLink.url, "_blank", "noopener,noreferrer"); setExternalLink(null); }} className="ticker" style={{ flex: 1, padding: "10px 0", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                    CONTINUE ↗
+                  </button>
+                  <button onClick={function() { setExternalLink(null); }} className="ticker" style={{ padding: "10px 20px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#4a5568", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
       {phase === "error" && (
