@@ -430,8 +430,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
     const addLog = line => { log += line + "\n"; setStream(log); };
 
     try {
-      addLog(isWebsite ? `🌐 Scouting ${h}…` : `🚀 Scouting @${h}…`);
-      addLog(`🔍 Searching for BD contacts…`);
+      addLog(isWebsite ? "🌐 Scouting " + h + "…" : "🚀 Scouting @" + h + "…");
+      addLog("🔍 Searching for BD contacts…");
 
       const searchTarget = isWebsite ? handle.trim() : "@" + h;
       const prompt = isWebsite
@@ -470,7 +470,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       let ei = 0;
       while (res.stop_reason === "tool_use" && ei < 6 && !res._err) {
         ei++;
-        for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
+        for (const b of res.content) { if (b.type === "tool_use") addLog("🔎 " + (b.input && b.input.query)); }
         const toolResults = res.content
           .filter(b => b.type === "tool_use")
           .map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." }));
@@ -487,9 +487,11 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           return;
         }
       }
-      addLog(`✅ Done — ${ei} searches run`);
+      addLog("✅ Done — " + ei + " searches run");
 
       const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
+      addLog("📄 Length: " + txt.length + " — " + txt.slice(0, 80));
+
       let parsed = SAFE_JSON(txt);
       if (!parsed) {
         parsed = { projectName: h, symbol: h.toUpperCase().slice(0,6), emoji: "🛸", tagline: "Crypto project @" + h, description: "Visit their website for more details.", category: "Crypto", stage: "Unknown", chain: "Unknown", website: "", twitter: "@" + h, telegram: "Unknown", bdEmail: "Unknown", bdTelegram: "Unknown", bestContactPath: "Twitter DM: @" + h, outreachStrategy: "", bdScore: 50, dataQuality: "Low", contacts: [], tags: [] };
@@ -515,7 +517,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       });
       setPhase("done");
     } catch (e) {
-      addLog(`❌ ${e.message}`);
+      addLog("❌ " + e.message);
       setPhase("error");
     }
   };
@@ -794,6 +796,116 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   );
 }
 
+
+const fetchDexScreener = async (setDexData, setDexLoading, setDexLastUpdate) => {
+  setDexLoading(true);
+
+  // First: immediately show static data so the UI is never empty
+  loadStaticFeed();
+
+  // Then: try to enrich with live AI web search
+  try {
+    const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1024,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
+      }),
+    });
+
+    if (res.ok) {
+      let data = await res.json();
+      let itr = 0;
+      while (data.stop_reason === "tool_use" && itr < 5) {
+        itr++;
+        data = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5", max_tokens: 1024,
+            tools: [{ type: "web_search_20250305", name: "web_search" }],
+            messages: [
+              { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
+              { role: "assistant", content: data.content },
+              { role: "user", content: data.content.filter(b => b.type==="tool_use").map(b => ({ type:"tool_result", tool_use_id:b.id, content:"done" })) },
+            ],
+          }),
+        }).then(r => r.json());
+      }
+
+      const txt = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+      const parsed = SAFE_JSON(txt);
+      if (parsed && parsed.trending && parsed.trending.length > 0 || parsed && parsed.new && parsed.new.length > 0) {
+        const toP = (item, i, source) => ({
+          id: `live-${source}-${i}`, rank: i+1,
+          name: item.name||"Unknown", symbol: (item.symbol||"?").toUpperCase(),
+          logo: "🪙", isImg: false, chain: item.chain||"—", contract: "",
+          dexUrl: item.dexUrl||`https://dexscreener.com/search?q=${item.symbol}`,
+          twitter: item.twitter||"—", telegram: item.telegram||"—", website: item.website||"—",
+          price: item.price||"—",
+          change24h: item.change24h?(String(item.change24h).match(/^[+-]/)?item.change24h+"%":"+"+item.change24h+"%"):"—",
+          change24hRaw: parseFloat(item.change24h)||0,
+          volume: item.volume||"—", mcap: item.mcap||"—", mcapRaw: 0,
+          source, isNew: source==="new", addedDaysAgo: source==="new"?0:1,
+          category: "DeFi", stage: "Listed", isImg: false,
+          description: item.description||`${item.name} on DexScreener`,
+          tags: [item.chain||"Chain", source==="new"?"🆕 New":"🔥 Trending"],
+          trendScore: Math.min(99, 95-i*3),
+        });
+        const trending = (parsed.trending||[]).map((x,i)=>toP(x,i,"trending"));
+        const newest   = (parsed.new||[]).map((x,i)=>toP(x,i,"new"));
+        const gainers  = [...trending,...newest].filter(p=>p.change24hRaw>0).sort((a,b)=>b.change24hRaw-a.change24hRaw).slice(0,12);
+        setDexData({ trending, new: newest, gainers: gainers.length>0?gainers:trending });
+        setDexLastUpdate(new Date());
+      }
+    }
+  } catch(e) { console.warn("Live feed:", e.message); }
+
+  setDexLoading(false);
+};
+
+const quickScout = async (project) => {
+  const twitterHint = project.twitter && project.twitter !== "—" ? ` Twitter: ${project.twitter}.` : "";
+  const websiteHint = project.website && project.website !== "—" ? ` Website: ${project.website}.` : "";
+  const prompt = `Find BD contacts for crypto project "${project.name}" (${project.symbol}) on ${project.chain}.${twitterHint}${websiteHint} Contract: ${project.contract || "unknown"}.
+DexScreener: ${project.dexUrl || ""}
+Search: "${project.symbol} ${project.chain} bscscan" OR "${project.symbol} etherscan", "${project.name} official email", "${project.name} twitter telegram", "${project.symbol} coingecko"
+DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or Unknown","bdTelegram":"t.me/x or Unknown","twitterHandle":"@handle or Unknown","bestContactPath":"specific path","confidence":"High|Medium|Low","source":"where found"}`;
+  let msgs = [{ role: "user", content: prompt }];
+  let res = await SAFE_API(msgs);
+  let i = 0;
+  while (res.stop_reason === "tool_use" && i < 4 && !res._err) {
+    i++;
+    msgs.push({ role: "assistant", content: res.content });
+    msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
+    res = await SAFE_API(msgs);
+  }
+  const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
+  return SAFE_JSON(text) || { website: project.website || "Unknown", bdEmail: "Unknown", bdTelegram: project.telegram || "Unknown", twitterHandle: project.twitter || "Unknown", bestContactPath: project.twitter !== "—" ? `Twitter DM: ${project.twitter}` : "Manual research needed", confidence: "Low", source: "API unavailable" };
+};
+
+const runAutoScout = async (list, setAutoRunning, setAutoActive, setAutoLog, setAutoDone, setDoneCount, setEmailCount, autoStop) => {
+  autoStop.current = false; setAutoRunning(true); setAutoLog([]);
+  const queue = list.slice(0, 15);
+  for (const p of queue) {
+    if (autoStop.current) break;
+    setAutoActive(p.id);
+    setAutoLog(prev => [{ id: p.id, name: p.name, symbol: p.symbol, logo: p.logo, isImg: p.isImg, chain: p.chain, status: "scanning", ts: new Date() }, ...prev].slice(0, 50));
+    try {
+      const r = await quickScout(p);
+      setAutoDone(prev => ({ ...prev, [p.id]: r }));
+      setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "done", bdEmail: r.bdEmail, confidence: r.confidence } : l));
+    } catch {
+      setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "error" } : l));
+    }
+    if (!autoStop.current) await new Promise(r => setTimeout(r, 2500));
+  }
+  setAutoActive(null); setAutoRunning(false);
+};
+
 export default function App() {
   const [viewTab,  setViewTab]  = useState("top");
   const [catTab,   setCatTab]   = useState("all");
@@ -854,75 +966,6 @@ export default function App() {
     setDexLastUpdate(new Date());
   };
 
-  const fetchDexScreener = async () => {
-    setDexLoading(true);
-
-    // First: immediately show static data so the UI is never empty
-    loadStaticFeed();
-
-    // Then: try to enrich with live AI web search
-    try {
-      const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 1024,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
-        }),
-      });
-
-      if (res.ok) {
-        let data = await res.json();
-        let itr = 0;
-        while (data.stop_reason === "tool_use" && itr < 5) {
-          itr++;
-          data = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-5", max_tokens: 1024,
-              tools: [{ type: "web_search_20250305", name: "web_search" }],
-              messages: [
-                { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
-                { role: "assistant", content: data.content },
-                { role: "user", content: data.content.filter(b => b.type==="tool_use").map(b => ({ type:"tool_result", tool_use_id:b.id, content:"done" })) },
-              ],
-            }),
-          }).then(r => r.json());
-        }
-
-        const txt = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
-        const parsed = SAFE_JSON(txt);
-        if (parsed && parsed.trending && parsed.trending.length > 0 || parsed && parsed.new && parsed.new.length > 0) {
-          const toP = (item, i, source) => ({
-            id: `live-${source}-${i}`, rank: i+1,
-            name: item.name||"Unknown", symbol: (item.symbol||"?").toUpperCase(),
-            logo: "🪙", isImg: false, chain: item.chain||"—", contract: "",
-            dexUrl: item.dexUrl||`https://dexscreener.com/search?q=${item.symbol}`,
-            twitter: item.twitter||"—", telegram: item.telegram||"—", website: item.website||"—",
-            price: item.price||"—",
-            change24h: item.change24h?(String(item.change24h).match(/^[+-]/)?item.change24h+"%":"+"+item.change24h+"%"):"—",
-            change24hRaw: parseFloat(item.change24h)||0,
-            volume: item.volume||"—", mcap: item.mcap||"—", mcapRaw: 0,
-            source, isNew: source==="new", addedDaysAgo: source==="new"?0:1,
-            category: "DeFi", stage: "Listed", isImg: false,
-            description: item.description||`${item.name} on DexScreener`,
-            tags: [item.chain||"Chain", source==="new"?"🆕 New":"🔥 Trending"],
-            trendScore: Math.min(99, 95-i*3),
-          });
-          const trending = (parsed.trending||[]).map((x,i)=>toP(x,i,"trending"));
-          const newest   = (parsed.new||[]).map((x,i)=>toP(x,i,"new"));
-          const gainers  = [...trending,...newest].filter(p=>p.change24hRaw>0).sort((a,b)=>b.change24hRaw-a.change24hRaw).slice(0,12);
-          setDexData({ trending, new: newest, gainers: gainers.length>0?gainers:trending });
-          setDexLastUpdate(new Date());
-        }
-      }
-    } catch(e) { console.warn("Live feed:", e.message); }
-
-    setDexLoading(false);
-  };
 
   // Load DexScreener when Auto Scout page is opened
   useEffect(() => {
@@ -975,44 +1018,7 @@ export default function App() {
   };
   const [historyModal, setHistoryModal] = useState(null);
 
-  const quickScout = async (project) => {
-    const twitterHint = project.twitter && project.twitter !== "—" ? ` Twitter: ${project.twitter}.` : "";
-    const websiteHint = project.website && project.website !== "—" ? ` Website: ${project.website}.` : "";
-    const prompt = `Find BD contacts for crypto project "${project.name}" (${project.symbol}) on ${project.chain}.${twitterHint}${websiteHint} Contract: ${project.contract || "unknown"}.
-DexScreener: ${project.dexUrl || ""}
-Search: "${project.symbol} ${project.chain} bscscan" OR "${project.symbol} etherscan", "${project.name} official email", "${project.name} twitter telegram", "${project.symbol} coingecko"
-DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or Unknown","bdTelegram":"t.me/x or Unknown","twitterHandle":"@handle or Unknown","bestContactPath":"specific path","confidence":"High|Medium|Low","source":"where found"}`;
-    let msgs = [{ role: "user", content: prompt }];
-    let res = await SAFE_API(msgs);
-    let i = 0;
-    while (res.stop_reason === "tool_use" && i < 4 && !res._err) {
-      i++;
-      msgs.push({ role: "assistant", content: res.content });
-      msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-      res = await SAFE_API(msgs);
-    }
-    const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
-    return SAFE_JSON(text) || { website: project.website || "Unknown", bdEmail: "Unknown", bdTelegram: project.telegram || "Unknown", twitterHandle: project.twitter || "Unknown", bestContactPath: project.twitter !== "—" ? `Twitter DM: ${project.twitter}` : "Manual research needed", confidence: "Low", source: "API unavailable" };
-  };
 
-  const runAutoScout = async (list) => {
-    autoStop.current = false; setAutoRunning(true); setAutoLog([]);
-    const queue = list.slice(0, 15);
-    for (const p of queue) {
-      if (autoStop.current) break;
-      setAutoActive(p.id);
-      setAutoLog(prev => [{ id: p.id, name: p.name, symbol: p.symbol, logo: p.logo, isImg: p.isImg, chain: p.chain, status: "scanning", ts: new Date() }, ...prev].slice(0, 50));
-      try {
-        const r = await quickScout(p);
-        setAutoDone(prev => ({ ...prev, [p.id]: r }));
-        setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "done", bdEmail: r.bdEmail, confidence: r.confidence } : l));
-      } catch {
-        setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "error" } : l));
-      }
-      if (!autoStop.current) await new Promise(r => setTimeout(r, 2500));
-    }
-    setAutoActive(null); setAutoRunning(false);
-  };
 
   const stopAutoScout = () => { autoStop.current = true; setAutoRunning(false); setAutoActive(null); };
 
@@ -1072,7 +1078,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
           {[
             { label: "Curated Projects", value: ALL_PROJECTS.length, sub: "Manual BD targets", icon: "📊" },
             { label: "Live on DexScreener", value: dexData.trending.length + dexData.new.length > 0 ? dexData.trending.length + dexData.new.length : "—", sub: "New & trending tokens", icon: "📡" },
-            { label: "Auto Scout", value: doneCount > 0 ? `${emailCount}/${doneCount}` : "Ready", sub: "Emails found/scanned", icon: "🤖" },
+            { label: "Auto Scout", value: doneCount > 0 ? emailCount + "/" + doneCount : "Ready", sub: "Emails found/scanned", icon: "🤖" },
             { label: "BD Pipeline", value: leads.length, sub: "Saved leads", icon: "📋" },
           ].map(s => (
             <div key={s.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -1110,7 +1116,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                     {dexLoading ? "⏳ Loading…" : "🔄 Refresh Feed"}
                   </button>
                   {!autoRunning ? (
-                    <button onClick={() => runAutoScout(dexDisplay)} disabled={dexDisplay.length === 0} className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-40"
+                    <button onClick={() => runAutoScout(dexDisplay, setAutoRunning, setAutoActive, setAutoLog, setAutoDone, setDoneCount, setEmailCount, autoStop)} disabled={dexDisplay.length === 0} className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-40"
                       style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white" }}>
                       ⚡ Auto Scout ({Math.min(15, dexDisplay.length)})
                     </button>
@@ -1209,7 +1215,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                       </div>
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>{p.chain}</span>
                       <span className="text-white text-sm font-medium">{p.price}</span>
-                      <span className={`text-sm font-medium ${p.change24h === "—" ? "text-gray-700" : isPos ? "text-emerald-400" : "text-red-400"}`}>{p.change24h}</span>
+                      <span className={"text-sm font-medium " + (p.change24h === "—" ? "text-gray-700" : isPos ? "text-emerald-400" : "text-red-400")}>{p.change24h}</span>
                       <span className="text-gray-300 text-sm">{p.volume}</span>
                       <span className="text-gray-300 text-sm">{p.mcap}</span>
                       <div className="flex items-center gap-1.5 justify-end flex-wrap" onClick={e => e.stopPropagation()}>
@@ -1325,7 +1331,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                     <div className="pr-2">
                       {viewTab === "top"      && <span className="text-gray-600 text-sm font-medium">#{p.rank}</span>}
                       {viewTab === "trending" && <ScoreBar score={p.trendScore} color="#ff6a00" />}
-                      {viewTab === "gainers"  && <span className={`text-sm font-bold ${isPos ? "text-emerald-400" : "text-red-400"}`}>{p.change24h}</span>}
+                      {viewTab === "gainers"  && <span className={"text-sm font-bold " + (isPos ? "text-emerald-400" : "text-red-400")}>{p.change24h}</span>}
                       {viewTab === "new"      && <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>{p.addedDaysAgo <= 1 ? "Today" : p.addedDaysAgo + "d"}</span>}
                     </div>
                     <div className="flex items-center gap-3">
@@ -1342,7 +1348,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                     <StagePill stage={p.stage} />
                     <span className="text-white text-sm font-medium">{p.price}</span>
                     <span className="text-white text-sm">{p.mcap}</span>
-                    <span className={`text-sm font-medium ${p.change24h === "—" ? "text-gray-700" : isPos ? "text-emerald-400" : "text-red-400"}`}>{p.change24h}</span>
+                    <span className={"text-sm font-medium " + (p.change24h === "—" ? "text-gray-700" : isPos ? "text-emerald-400" : "text-red-400")}>{p.change24h}</span>
                     <div className="flex gap-1.5 justify-end items-center" onClick={e => e.stopPropagation()}>
                       {isActive && <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />}
                       {!isActive && asDone && <span title={asDone.bdEmail !== "Unknown" ? asDone.bdEmail : "No email"} style={{ cursor: "help" }}>{asDone.bdEmail !== "Unknown" ? "📧" : "⚡"}</span>}
