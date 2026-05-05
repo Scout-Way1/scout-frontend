@@ -524,53 +524,68 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 
   const copy = (t, k) => { navigator.clipboard.writeText(t); setCopied(k); setTimeout(() => setCopied(null), 2000); };
   const CONF = { High: { bg: "rgba(16,185,129,0.14)", c: "#10b981" }, Medium: { bg: "rgba(245,158,11,0.14)", c: "#f59e0b" }, Low: { bg: "rgba(239,68,68,0.14)", c: "#ef4444" } };
-  const BD = r => r >= 80 ? "#10b981" : r >= 60 ? "#f59e0b" : "#ef4444";
+  const BD = r => r >= 80 ? "#10b981" : r >= 60 ? "#fbbf24" : "#ef4444";
   const h = cleanHandle(handle);
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="rounded-2xl p-8 mb-6 text-center relative overflow-hidden" style={{ background: "linear-gradient(135deg,rgba(255,106,0,0.08),rgba(238,9,121,0.05))", border: "1px solid rgba(255,106,0,0.2)" }}>
-        <div className="relative">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-2xl">🛸</span>
-            <h2 className="text-white font-bold text-2xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Scout AI</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>LIVE</span>
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div className="ticker" style={{ color: "#4a5568", fontSize: 10 }}>SCOUT AI</div>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 2s infinite" }} />
+          <div className="ticker" style={{ color: "#fbbf24", fontSize: 10 }}>LIVE</div>
+        </div>
+        <h1 className="sans" style={{ fontSize: 28, fontWeight: 700, color: "#f0f6fc", margin: "0 0 6px", letterSpacing: "-0.02em" }}>BD Intelligence</h1>
+        <p className="sans" style={{ color: "#4a5568", fontSize: 14, margin: 0 }}>Enter a Twitter handle or website — AI searches the web and builds a complete BD contact profile.</p>
+      </div>
+
+      {/* Search input */}
+      <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, padding: 20, marginBottom: 24 }}>
+        {/* Mode toggle */}
+        <div style={{ display: "flex", gap: 2, marginBottom: 14 }}>
+          {[["twitter","TWITTER HANDLE"],["website","WEBSITE URL"]].map(function(m) {
+            var active = searchMode === m[0];
+            return (
+              <button key={m[0]} onClick={() => { setSearchMode(m[0]); setHandle(""); }} className="ticker"
+                style={{ padding: "5px 12px", borderRadius: 3, border: "1px solid " + (active ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.06)"), background: active ? "rgba(251,191,36,0.08)" : "transparent", color: active ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 10, transition: "all 0.15s" }}>
+                {m[1]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Input row */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#4a5568", fontSize: 13 }}>{searchMode === "twitter" ? "@" : "🌐"}</span>
+            <input value={handle} onChange={function(e) {
+              var val = e.target.value;
+              setHandle(val);
+              if (val.startsWith("http") || val.startsWith("www.")) setSearchMode("website");
+              else if (val.startsWith("@")) setSearchMode("twitter");
+            }} onKeyDown={function(e) { if (e.key === "Enter") runScout(); }}
+              placeholder={searchMode === "twitter" ? "twitterhandle" : "https://projectsite.com"}
+              style={{ width: "100%", paddingLeft: 32, paddingRight: 14, paddingTop: 11, paddingBottom: 11, background: "#080a0f", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, color: "#f0f6fc", fontSize: 14, outline: "none", fontFamily: "'IBM Plex Mono', monospace" }} />
           </div>
-          <p className="text-gray-400 text-sm mb-4 max-w-md mx-auto">AI researches any crypto project and builds a full BD profile with emails, contacts and outreach strategy.</p>
-          <div className="flex gap-2 justify-center mb-4">
-            <button onClick={() => { setSearchMode("twitter"); setHandle(""); }} className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={{ background: searchMode === "twitter" ? "linear-gradient(135deg,#ff6a00,#ee0979)" : "rgba(255,255,255,0.07)", color: searchMode === "twitter" ? "white" : "#6b7280" }}>
-              🐦 Twitter Handle
-            </button>
-            <button onClick={() => { setSearchMode("website"); setHandle(""); }} className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={{ background: searchMode === "website" ? "linear-gradient(135deg,#ff6a00,#ee0979)" : "rgba(255,255,255,0.07)", color: searchMode === "website" ? "white" : "#6b7280" }}>
-              🌐 Website URL
-            </button>
-          </div>
-          <div className="flex gap-3 max-w-xl mx-auto">
-            <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">{searchMode === "twitter" ? "🐦" : "🌐"}</span>
-              <input value={handle} onChange={e => {
-                const val = e.target.value;
-                setHandle(val);
-                if (val.startsWith("http") || val.startsWith("www.")) setSearchMode("website");
-                else if (val.startsWith("@")) setSearchMode("twitter");
-              }} onKeyDown={e => e.key === "Enter" && runScout()}
-                placeholder={searchMode === "twitter" ? "@projecthandle or paste Twitter URL…" : "https://projectwebsite.com"}
-                className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white text-sm outline-none"
-                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }} />
-            </div>
-            <button onClick={() => runScout()} disabled={phase === "loading" || dbLoading} className="px-6 py-3.5 rounded-xl font-semibold text-sm transition-all hover:scale-105 disabled:opacity-60 whitespace-nowrap"
-              style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-              {phase === "loading" ? "Scouting…" : dbLoading ? "Loading…" : "🔍 Scout"}
-            </button>
-          </div>
-          <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-            <span className="text-gray-600 text-xs">Try:</span>
-            {["@monad_xyz", "@berachain", "@KaitoAI", "@virtuals_io", "@aixovia"].map(ex => (
-              <button key={ex} onClick={() => { setHandle(ex); runScout(ex); }} className="text-xs px-2.5 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.08)" }}>{ex}</button>
-            ))}
-          </div>
+          <button onClick={function() { runScout(); }} disabled={phase === "loading" || dbLoading} className="scout-btn ticker"
+            style={{ padding: "11px 24px", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: 11, fontWeight: 600, opacity: phase === "loading" || dbLoading ? 0.5 : 1, whiteSpace: "nowrap", transition: "all 0.15s" }}>
+            {phase === "loading" ? "SCANNING..." : dbLoading ? "LOADING..." : "RUN SCOUT →"}
+          </button>
+        </div>
+
+        {/* Quick examples */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <span className="ticker" style={{ color: "#374151", fontSize: 10 }}>TRY:</span>
+          {["@monad_xyz", "@berachain", "@KaitoAI", "@virtuals_io", "@aixovia"].map(function(ex) {
+            return (
+              <button key={ex} onClick={function() { setHandle(ex); runScout(ex); }} className="ticker"
+                style={{ fontSize: 10, padding: "3px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer" }}>
+                {ex}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1032,46 +1047,92 @@ export default function App() {
   const colLabel   = viewTab === "trending" ? "Trend" : viewTab === "gainers" ? "Gain" : viewTab === "new" ? "Added" : "Rank";
 
   const NAV = [
-    { id: "scout",    label: "🛸 Scout AI", badge: "LIVE" },
-    { id: "pipeline", label: "📋 Pipeline (" + leads.length + ")" },
-    { id: "history",  label: "🕓 History", badge: contactHistory.length > 0 ? String(contactHistory.length) : undefined },
+    { id: "scout",    label: "SCOUT AI", badge: "LIVE" },
+    { id: "pipeline", label: "PIPELINE", count: leads.length },
+    { id: "history",  label: "HISTORY",  count: contactHistory.length },
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: "#06080f", fontFamily: "'DM Sans',sans-serif", color: "#e2e8f0" }}>
+    <div className="min-h-screen" style={{ background: "#080a0f", fontFamily: "'IBM Plex Mono', 'Courier New', monospace", color: "#c9d1d9" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0a0d14}::-webkit-scrollbar-thumb{background:#252d3d;border-radius:3px}
-        .row-hover:hover{background:rgba(255,255,255,0.04)!important;cursor:pointer}
-        input::placeholder{color:#2d3748}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-        .fade-up{animation:fadeUp 0.22s ease forwards}
-        select option{background:#0a0d14}
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #1e2940; border-radius: 2px; }
+        .scout-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .nav-item:hover { background: rgba(251,191,36,0.06) !important; color: #fbbf24 !important; }
+        .card-hover:hover { border-color: rgba(251,191,36,0.2) !important; }
+        input::placeholder { color: #3d4f6b; }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes scan-line { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+        .fade-in { animation: fadeIn 0.3s ease forwards; }
+        .mono { font-family: 'IBM Plex Mono', monospace; }
+        .sans { font-family: 'IBM Plex Sans', sans-serif; }
+        .ticker { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; }
+        .grid-line { border-color: rgba(255,255,255,0.04); }
       `}</style>
 
-      <nav className="sticky top-0 z-30" style={{ background: "rgba(6,8,15,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)" }}>S</div>
-            <span className="font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "1rem" }}>Scout <span style={{ color: "#ff6a00" }}>BD</span></span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs flex-shrink-0" style={{ background: "rgba(255,106,0,0.1)", border: "1px solid rgba(255,106,0,0.2)", color: "#ff6a00" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />Live
-          </div>
-        </div>
-        <div className="flex gap-1 px-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {NAV.map(item => (
-            <button key={item.id} onClick={() => setPage(item.id)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
-              style={{ background: page === item.id ? "rgba(255,106,0,0.12)" : "transparent", color: page === item.id ? "#ff6a00" : "#6b7280", border: page === item.id ? "1px solid rgba(255,106,0,0.25)" : "1px solid transparent" }}>
-              {item.label}
-              {item.badge && <span className="px-1 py-0.5 rounded font-bold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white", fontSize: "9px" }}>{item.badge}</span>}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* Subtle grid background */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(251,191,36,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(251,191,36,0.015) 1px,transparent 1px)", backgroundSize: "48px 48px", pointerEvents: "none", zIndex: 0 }} />
 
-      <div className="max-w-7xl mx-auto px-4 py-7">
+      {/* Top bar */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, background: "rgba(8,10,15,0.98)", borderBottom: "1px solid rgba(251,191,36,0.12)", backdropFilter: "blur(20px)" }}>
+        {/* Main nav row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 52 }}>
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Logo mark */}
+            <div style={{ width: 32, height: 32, position: "relative", flexShrink: 0 }}>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="6" fill="#0d1117" stroke="rgba(251,191,36,0.3)" strokeWidth="1"/>
+                <circle cx="16" cy="14" r="5" stroke="#fbbf24" strokeWidth="1.5" fill="none"/>
+                <circle cx="16" cy="14" r="2" fill="#fbbf24" opacity="0.6"/>
+                <line x1="20" y1="19" x2="25" y2="24" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="16" cy="14" r="8" stroke="rgba(251,191,36,0.15)" strokeWidth="1" fill="none" strokeDasharray="2 3"/>
+              </svg>
+            </div>
+            <div>
+              <div className="sans" style={{ fontSize: 15, fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em", lineHeight: 1 }}>
+                Scout<span style={{ color: "#fbbf24" }}>.</span>
+              </div>
+              <div className="ticker" style={{ color: "#4a5568", fontSize: 9, marginTop: 1 }}>BD INTELLIGENCE</div>
+            </div>
+          </div>
+
+          {/* Nav tabs */}
+          <div style={{ display: "flex", gap: 2 }}>
+            {NAV.map(item => {
+              var active = page === item.id;
+              return (
+                <button key={item.id} onClick={() => setPage(item.id)} className="nav-item ticker"
+                  style={{ padding: "6px 14px", borderRadius: 4, border: "1px solid " + (active ? "rgba(251,191,36,0.3)" : "transparent"), background: active ? "rgba(251,191,36,0.08)" : "transparent", color: active ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>
+                  {item.label}
+                  {item.badge && <span style={{ background: "#fbbf24", color: "#080a0f", fontSize: 9, padding: "1px 5px", borderRadius: 2, fontWeight: 700 }}>{item.badge}</span>}
+                  {item.count > 0 && <span style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontSize: 9, padding: "1px 5px", borderRadius: 2 }}>{item.count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Status indicator */}
+          <div className="ticker" style={{ display: "flex", alignItems: "center", gap: 8, color: "#4a5568", fontSize: 11 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block", animation: "pulse-dot 2s infinite" }} />
+              <span style={{ color: "#10b981" }}>ONLINE</span>
+            </div>
+            <span style={{ color: "#1e2940" }}>|</span>
+            <span>SONNET 4.5</span>
+          </div>
+        </div>
+
+        {/* Active page indicator bar */}
+        <div style={{ height: 1, background: "linear-gradient(90deg,transparent,rgba(251,191,36,0.4),transparent)" }} />
+      </div>
+
+      {/* Page content */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "76px 24px 40px", position: "relative", zIndex: 1 }}>
 
         {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} contactHistory={contactHistory} dbLoading={dbLoading} />}
 
@@ -1348,101 +1409,63 @@ export default function App() {
         )}
 
         {page === "history" && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
+          <div className="fade-in">
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)" }}>
               <div>
-                <h2 className="text-white font-bold text-xl">🕓 Contact History</h2>
-                <p className="text-gray-600 text-sm mt-1">All AI-scraped contacts — never research the same project twice</p>
+                <div className="ticker" style={{ color: "#4a5568", fontSize: 10, marginBottom: 4 }}>RESEARCH HISTORY</div>
+                <h2 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 22, margin: 0 }}>Contact Intelligence</h2>
               </div>
-              {contactHistory.length > 0 && (
-                <button onClick={() => { setContactHistory([]); sbFetch("/scout_history", "DELETE"); }} className="px-3 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
-                  Clear all
-                </button>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className="ticker" style={{ color: "#4a5568", fontSize: 11 }}>{contactHistory.length} RECORDS</span>
+                {contactHistory.length > 0 && (
+                  <button onClick={() => { setContactHistory([]); sbFetch("/scout_history", "DELETE"); }} style={{ padding: "5px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>
+                    CLEAR ALL
+                  </button>
+                )}
+              </div>
             </div>
             {contactHistory.length === 0 ? (
-              <div className="text-center py-20 rounded-2xl" style={{ border: "1px dashed rgba(255,255,255,0.08)" }}>
-                <p className="text-4xl mb-3">🕓</p>
-                <p className="text-white font-semibold mb-1">No history yet</p>
-                <p className="text-gray-600 text-sm">Use Scout AI or the 🤖 BD button on any project — results appear here automatically</p>
+              <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.1)", borderRadius: 8 }}>
+                <div className="ticker" style={{ color: "#4a5568", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
+                <p className="sans" style={{ color: "#4a5568", fontSize: 13 }}>Research history will appear here after using Scout AI</p>
               </div>
             ) : (
-              <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="grid px-5 py-3 text-xs font-semibold uppercase tracking-wider border-b" style={{ gridTemplateColumns: "2fr 90px 2fr 100px 100px 110px", color: "#374151", borderColor: "rgba(255,255,255,0.06)" }}>
-                  <span>Project</span><span>Source</span><span>Best Contact</span><span>Email</span><span>Confidence</span><span className="text-right">Actions</span>
+              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
+                <div className="ticker" style={{ display: "grid", gridTemplateColumns: "2fr 80px 2fr 120px 80px 120px", padding: "8px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", fontSize: 10 }}>
+                  <span>PROJECT</span><span>SOURCE</span><span>BD EMAIL</span><span>BEST PATH</span><span>CONFIDENCE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
                 </div>
                 {contactHistory.map((item, i) => {
-                  const hasEmail = item.bdEmail && item.bdEmail !== "Unknown";
-                  const srcColor = item.source === "Scout AI" ? "#ff6a00" : "#a5b4fc";
-                  const confColor = item.confidence === "High" ? "#10b981" : item.confidence === "Medium" ? "#f59e0b" : "#6b7280";
+                  var hasEmail = item.bdEmail && item.bdEmail !== "Unknown";
+                  var confColor = item.confidence === "High" ? "#10b981" : item.confidence === "Medium" ? "#fbbf24" : "#6b7280";
                   return (
-                    <div key={i} className="grid items-center px-5 py-3 border-b row-hover" style={{ gridTemplateColumns: "2fr 90px 2fr 100px 100px 110px", borderColor: "rgba(255,255,255,0.04)" }}>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>{item.logo || "🪙"}</div>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 80px 2fr 120px 80px 120px", padding: "11px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: 4, background: "rgba(251,191,36,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{item.logo || "◎"}</div>
                         <div>
-                          <p className="text-white font-semibold text-sm">{item.name}</p>
-                          <p className="text-gray-600 text-xs">{item.symbol}{item.chain && item.chain !== "—" ? " · " + item.chain : ""}</p>
+                          <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13 }}>{item.name}</div>
+                          <div className="ticker" style={{ color: "#4a5568", fontSize: 10 }}>{item.symbol}{item.chain ? " · " + item.chain : ""}</div>
                         </div>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold w-fit" style={{ background: srcColor + "18", color: srcColor }}>{item.source}</span>
-                      <span className="text-gray-400 text-xs truncate pr-3">{item.bestContactPath || "—"}</span>
+                      <span className="ticker" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 2, background: "rgba(251,191,36,0.08)", color: "#fbbf24", display: "inline-block", width: "fit-content" }}>{item.source}</span>
                       <div>
                         {hasEmail
-                          ? <div className="flex items-center gap-1">
-                              <span className="text-emerald-400 text-xs font-mono truncate max-w-[80px]">{item.bdEmail}</span>
-                              <button onClick={() => navigator.clipboard.writeText(item.bdEmail)} className="text-xs px-1 py-0.5 rounded flex-shrink-0" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>⎘</button>
+                          ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span className="ticker" style={{ color: "#10b981", fontSize: 11 }}>{item.bdEmail}</span>
+                              <button onClick={() => navigator.clipboard.writeText(item.bdEmail)} style={{ padding: "1px 6px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>COPY</button>
                             </div>
-                          : <span className="text-gray-700 text-xs">—</span>}
+                          : <span className="ticker" style={{ color: "#374151", fontSize: 10 }}>NOT FOUND</span>}
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full w-fit" style={{ background: confColor + "18", color: confColor }}>{item.confidence || "—"}</span>
-                      <div className="flex gap-1.5 justify-end">
+                      <span className="ticker" style={{ color: "#6b7280", fontSize: 10 }}>{(item.bestContactPath || "—").slice(0, 20)}</span>
+                      <span className="ticker" style={{ color: confColor, fontSize: 10 }}>{item.confidence || "—"}</span>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 5 }}>
                         {item.fullResult && (
-                          <button onClick={() => setHistoryModal(item)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}>
-                            Read
-                          </button>
+                          <button onClick={() => setHistoryModal(item)} style={{ padding: "3px 8px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>READ</button>
                         )}
-                        <button onClick={() => { setPage("scout"); }}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-                          🛸
-                        </button>
-                        <button onClick={() => addLead({ id: "h" + i, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain || "—", category: "DeFi", stage: "Listed", description: item.description || "", tags: [] })}
-                          className="px-2.5 py-1.5 rounded-lg text-xs" style={{ background: "rgba(255,255,255,0.05)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }}>
-                          +
-                        </button>
+                        <button onClick={() => { setPage("scout"); }} style={{ padding: "3px 8px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#6b7280", borderRadius: 2, cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}>RE-SCOUT</button>
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {page === "pipeline" && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-white font-bold text-xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>BD Pipeline</h2>
-              <span className="text-gray-600 text-sm">{leads.length} projects</span>
-            </div>
-            {leads.length === 0 ? (
-              <div className="text-center py-20 rounded-2xl" style={{ border: "1px dashed rgba(255,255,255,0.08)" }}>
-                <p className="text-4xl mb-3">📋</p>
-                <p className="text-gray-600 text-sm">No leads yet. Browse <button onClick={() => setPage("home")} className="text-orange-400">Projects</button> or use <button onClick={() => setPage("scout")} className="text-orange-400">Scout AI</button>.</p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {leads.map(p => (
-                  <div key={p.id} className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl" style={{ background: "rgba(255,255,255,0.06)" }}>{p.logo}</div>
-                      <div className="flex-1"><p className="text-white font-semibold">{p.name}</p><p className="text-gray-600 text-xs">{p.symbol} · {p.category}</p></div>
-                      <StagePill stage={p.stage} />
-                    </div>
-                    <p className="text-gray-600 text-xs mb-4 leading-relaxed line-clamp-2">{p.description}</p>
-                    <button onClick={() => setContact(p)} className="w-full py-2.5 rounded-xl text-xs font-semibold hover:scale-[1.02] transition-all" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>🤖 Find BD Contacts</button>
-                  </div>
-                ))}
               </div>
             )}
           </div>
