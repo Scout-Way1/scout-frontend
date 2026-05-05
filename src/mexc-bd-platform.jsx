@@ -126,6 +126,69 @@ function findCachedScout(history, input) {
   return null;
 }
 
+// Score a scout entry by data quality. Higher = better. Used to pick the "best"
+// scout from a group of duplicates. Tier matters (Pro/Basic > Free), then dataQuality,
+// then whether bdEmail was found, then recency.
+function scoutScore(item) {
+  if (!item) return 0;
+  var s = 0;
+  // Tier preference (Free is downranked since it's scrape-only)
+  var tier = (item.fullResult && item.fullResult._tier) || (item.source && /free/i.test(item.source) ? "free" : "basic");
+  if (tier === "pro")   s += 30;
+  if (tier === "basic") s += 20;
+  if (tier === "free")  s += 5;
+  // Quality
+  var q = (item.confidence || "").toLowerCase();
+  if (q === "high")   s += 25;
+  if (q === "medium") s += 15;
+  if (q === "low")    s += 5;
+  // Email found? Big bonus.
+  if (item.bdEmail && item.bdEmail !== "Unknown") s += 20;
+  // BD score from AI
+  if (item.fullResult && typeof item.fullResult.bdScore === "number") s += item.fullResult.bdScore / 5; // up to +20
+  // Recency: newer wins on ties (small weight, days-old penalty)
+  var ts = item.ts ? new Date(item.ts).getTime() : 0;
+  if (ts) {
+    var daysAgo = (Date.now() - ts) / (1000 * 60 * 60 * 24);
+    s -= Math.min(daysAgo, 10); // cap recency penalty at -10
+  }
+  return s;
+}
+
+// Group history items by project. Returns an array of groups, each shaped like:
+//   { key, best, all: [items...], count }
+// "best" is the highest-scoutScore item, used as the default display row.
+function groupHistoryByProject(history) {
+  if (!history || !history.length) return [];
+  var byKey = {}; // key -> { items: [...] }
+
+  history.forEach(function(item) {
+    // Try multiple keys per item; use whichever exists first
+    var twKey = projectKey(item.twitter);
+    var wsKey = projectKey(item.website);
+    var nmKey = (item.name || "").toLowerCase().replace(/\s+/g, "");
+    var key = twKey || wsKey || nmKey || ("orphan-" + Math.random());
+    if (!byKey[key]) byKey[key] = { items: [] };
+    byKey[key].items.push(item);
+  });
+
+  var groups = [];
+  Object.keys(byKey).forEach(function(k) {
+    var items = byKey[k].items.slice();
+    // Sort items inside the group by scoutScore desc (best first)
+    items.sort(function(a, b) { return scoutScore(b) - scoutScore(a); });
+    groups.push({ key: k, best: items[0], all: items, count: items.length });
+  });
+
+  // Sort groups by their best item's recency (newest project activity first)
+  groups.sort(function(a, b) {
+    var ta = a.best && a.best.ts ? new Date(a.best.ts).getTime() : 0;
+    var tb = b.best && b.best.ts ? new Date(b.best.ts).getTime() : 0;
+    return tb - ta;
+  });
+  return groups;
+}
+
 // Logo: shows a deterministic identicon from DiceBear based on twitter handle (or name as fallback).
 // DiceBear is free, has no rate limits, and generates a unique pattern per seed.
 // If the project has a real image URL in .logo (e.g. from DexScreener), use that directly.
@@ -1845,6 +1908,9 @@ export default function App() {
   const [historyModal, setHistoryModal] = useState(null);
   const [histFilter, setHistFilter] = useState("all");
   const [histSearch, setHistSearch] = useState("");
+  // Tracks which grouped project rows are expanded (to show inner scouts).
+  // Stored as object keyed by group key, value boolean.
+  const [expandedGroups, setExpandedGroups] = useState({});
   const [pipeSelected, setPipeSelected] = useState(null);
   const [pipeFilter, setPipeFilter] = useState("all");
   const [pipeSearch, setPipeSearch] = useState("");
@@ -2237,14 +2303,26 @@ export default function App() {
                 <h2 className="sans" style={{ fontSize: 24, fontWeight: 700, color: "#f0f6fc", margin: 0, letterSpacing: "-0.02em" }}>Contact Intelligence</h2>
               </div>
               <div style={{ display: "flex", gap: 24 }}>
-                {[["TOTAL", contactHistory.length, "#c9d1d9"], ["EMAILS FOUND", contactHistory.filter(function(h){return !!bestEmail(h);}).length, "#10b981"], ["NO EMAIL", contactHistory.filter(function(h){return !bestEmail(h);}).length, "#ef4444"]].map(function(row) {
-                  return (
-                    <div key={row[0]} style={{ textAlign: "right" }}>
-                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 2 }}>{row[0]}</div>
-                      <div className="sans" style={{ fontSize: 22, fontWeight: 700, color: row[2], lineHeight: 1 }}>{row[1]}</div>
-                    </div>
-                  );
-                })}
+                {(function(){
+                  var groups = groupHistoryByProject(contactHistory);
+                  var withEmail = groups.filter(function(g){ return !!bestEmail(g.best); }).length;
+                  var withoutEmail = groups.filter(function(g){ return !bestEmail(g.best); }).length;
+                  var totalScouts = contactHistory.length;
+                  var stats = [
+                    ["PROJECTS", groups.length, "#c9d1d9", totalScouts !== groups.length ? totalScouts + " total scouts" : null],
+                    ["WITH EMAIL", withEmail, "#10b981", null],
+                    ["NO EMAIL", withoutEmail, "#ef4444", null],
+                  ];
+                  return stats.map(function(row) {
+                    return (
+                      <div key={row[0]} style={{ textAlign: "right" }}>
+                        <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 2 }}>{row[0]}</div>
+                        <div className="sans" style={{ fontSize: 22, fontWeight: 700, color: row[2], lineHeight: 1 }}>{row[1]}</div>
+                        {row[3] && <div className="ticker" style={{ fontSize: 8, color: "#374151", marginTop: 2 }}>{row[3]}</div>}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -2272,74 +2350,152 @@ export default function App() {
               )}
             </div>
 
-            {contactHistory.filter(function(h){
-              var mf = histFilter==="all" || (histFilter==="email"&&h.bdEmail&&h.bdEmail!=="Unknown") || (histFilter==="noemail"&&(!h.bdEmail||h.bdEmail==="Unknown"));
-              var ms = !histSearch || h.name.toLowerCase().includes(histSearch.toLowerCase()) || (h.symbol||"").toLowerCase().includes(histSearch.toLowerCase());
-              return mf && ms;
-            }).length === 0 ? (
-              <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.08)", borderRadius: 6 }}>
-                <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
-                <p className="sans" style={{ color: "#374151", fontSize: 13 }}>Use Scout AI to research projects — results appear here automatically</p>
-              </div>
-            ) : (
-              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
-                <div style={{ minWidth: 860 }}>
-                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 210px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
-                    <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>BD EMAIL</span><span>CONFIDENCE</span><span>SCORE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
+            {(function(){
+              // Build grouped + filtered list. We filter on the GROUP'S best item so that
+              // a project shows up if any of its scouts match the filter, but the displayed
+              // row is always the best scout.
+              var groups = groupHistoryByProject(contactHistory);
+              var filtered = groups.filter(function(g){
+                var b = g.best;
+                if (!b) return false;
+                var foundEmail = bestEmail(b);
+                var mf = histFilter==="all" || (histFilter==="email"&&foundEmail) || (histFilter==="noemail"&&!foundEmail);
+                var search = histSearch.toLowerCase();
+                var ms = !search ||
+                  (b.name||"").toLowerCase().includes(search) ||
+                  (b.symbol||"").toLowerCase().includes(search) ||
+                  // Also search across all inner scouts so renamed entries still match
+                  g.all.some(function(it){ return ((it.name||"").toLowerCase().includes(search)) || ((it.symbol||"").toLowerCase().includes(search)); });
+                return mf && ms;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.08)", borderRadius: 6 }}>
+                    <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
+                    <p className="sans" style={{ color: "#374151", fontSize: 13 }}>Use Scout AI to research projects — results appear here automatically</p>
                   </div>
-                  {contactHistory.filter(function(h){
-                    var foundEmail = bestEmail(h);
-                    var mf = histFilter==="all" || (histFilter==="email"&&foundEmail) || (histFilter==="noemail"&&!foundEmail);
-                    var ms = !histSearch || h.name.toLowerCase().includes(histSearch.toLowerCase()) || (h.symbol||"").toLowerCase().includes(histSearch.toLowerCase());
-                    return mf && ms;
-                  }).map(function(item, i) {
-                    var displayEmail = bestEmail(item);
-                    var hasEmail = !!displayEmail;
-                    var score = item.fullResult && item.fullResult.bdScore;
-                    var confColor = { High: "#10b981", Medium: "#fbbf24", Low: "#ef4444" }[item.confidence] || "#6b7280";
-                    var scoreCol = score >= 70 ? "#10b981" : score >= 40 ? "#fbbf24" : "#ef4444";
-                    return (
-                      <div key={i} className="row-hover" onClick={function(){setHistoryModal(item);}}
-                        style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 210px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                          <Logo item={item} size={30} radius={4} fontSize={15} />
-                          <div style={{ minWidth: 0 }}>
-                            <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
-                            <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{item.ts ? new Date(item.ts).toLocaleDateString() : ""}</div>
-                          </div>
-                        </div>
-                        <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, whiteSpace: "nowrap" }}>{item.symbol}</span>
-                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.chain||"—"}</span>
-                        <div style={{ paddingRight: 8 }} onClick={function(e){e.stopPropagation();}}>
-                          {hasEmail
-                            ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{displayEmail}</span>
-                                <button onClick={function(){navigator.clipboard.writeText(displayEmail);}} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8, flexShrink: 0 }}>⎘</button>
+                );
+              }
+
+              return (
+                <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
+                  <div style={{ minWidth: 860 }}>
+                    <div className="ticker" style={{ display: "grid", gridTemplateColumns: "240px 80px 100px 1fr 110px 65px 210px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                      <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>BD EMAIL</span><span>CONFIDENCE</span><span>SCORE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
+                    </div>
+                    {filtered.map(function(group, gi){
+                      var item = group.best;
+                      var displayEmail = bestEmail(item);
+                      var hasEmail = !!displayEmail;
+                      var score = item.fullResult && item.fullResult.bdScore;
+                      var confColor = { High: "#10b981", Medium: "#fbbf24", Low: "#ef4444" }[item.confidence] || "#6b7280";
+                      var scoreCol = score >= 70 ? "#10b981" : score >= 40 ? "#fbbf24" : "#ef4444";
+                      var isExpanded = !!expandedGroups[group.key];
+                      var showBadge = group.count > 1;
+                      return (
+                        <div key={group.key}>
+                          {/* Main row: best scout for this project */}
+                          <div className="row-hover" onClick={function(){setHistoryModal(item);}}
+                            style={{ display: "grid", gridTemplateColumns: "240px 80px 100px 1fr 110px 65px 210px", padding: "12px 16px", borderBottom: isExpanded ? "1px solid rgba(251,191,36,0.08)" : "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: gi%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                              {showBadge ? (
+                                <button onClick={function(e){
+                                    e.stopPropagation();
+                                    setExpandedGroups(function(prev){
+                                      var next = Object.assign({}, prev);
+                                      if (next[group.key]) delete next[group.key]; else next[group.key] = true;
+                                      return next;
+                                    });
+                                  }} className="ticker"
+                                  style={{ width: 18, height: 18, padding: 0, background: "transparent", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 3, cursor: "pointer", fontSize: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                  title={isExpanded ? "Collapse" : "Show " + group.count + " scouts"}>
+                                  {isExpanded ? "▾" : "▸"}
+                                </button>
+                              ) : (
+                                <span style={{ width: 18, flexShrink: 0 }} />
+                              )}
+                              <Logo item={item} size={30} radius={4} fontSize={15} />
+                              <div style={{ minWidth: 0 }}>
+                                <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</span>
+                                  {showBadge && (
+                                    <span className="ticker" style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24", fontSize: 9, padding: "1px 6px", borderRadius: 8, flexShrink: 0 }}>{group.count} scouts</span>
+                                  )}
+                                </div>
+                                <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{item.ts ? new Date(item.ts).toLocaleDateString() : ""}</div>
                               </div>
-                            : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
-                        </div>
-                        <span className="ticker" style={{ fontSize: 10, color: confColor, whiteSpace: "nowrap" }}>{(item.confidence||"—").toUpperCase()}</span>
-                        <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
-                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
-                          <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
-                          <button onClick={function(){
-                            // Build a stable ID from twitter handle or name so re-clicks across filtered/sorted views don't collide
-                            var stableId = "h-" + (
-                              (item.twitter && item.twitter.replace("@","").toLowerCase()) ||
-                              (item.name && item.name.toLowerCase().replace(/\s+/g,"-")) ||
-                              ("idx-" + i)
+                            </div>
+                            <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, whiteSpace: "nowrap" }}>{item.symbol}</span>
+                            <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.chain||"—"}</span>
+                            <div style={{ paddingRight: 8 }} onClick={function(e){e.stopPropagation();}}>
+                              {hasEmail
+                                ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{displayEmail}</span>
+                                    <button onClick={function(){navigator.clipboard.writeText(displayEmail);}} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8, flexShrink: 0 }}>⎘</button>
+                                  </div>
+                                : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
+                            </div>
+                            <span className="ticker" style={{ fontSize: 10, color: confColor, whiteSpace: "nowrap" }}>{(item.confidence||"—").toUpperCase()}</span>
+                            <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
+                            <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
+                              <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
+                              <button onClick={function(){
+                                var stableId = "h-" + (
+                                  (item.twitter && item.twitter.replace("@","").toLowerCase()) ||
+                                  (item.name && item.name.toLowerCase().replace(/\s+/g,"-")) ||
+                                  ("idx-" + gi)
+                                );
+                                addLead({ id: stableId, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: item.source||"DeFi", stage: "Listed", description: item.description||"", bdEmail: item.bdEmail||"", bdTelegram: item.bdTelegram||"", listingInterest: item.fullResult&&item.fullResult.listingInterest, bdScore: item.fullResult&&item.fullResult.bdScore, tags: [] });
+                                setPage("pipeline");
+                              }} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
+                              <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
+                            </div>
+                          </div>
+                          {/* Expanded rows: all scouts for this group, indented */}
+                          {isExpanded && group.all.map(function(sub, si){
+                            // Don't double-show the "best" item — it's already in the main row.
+                            // We still want to see it in the expanded view as well so users understand
+                            // which scout was picked as best. Mark it with a small pill.
+                            var subEmail = bestEmail(sub);
+                            var subTier = (sub.fullResult && sub.fullResult._tier) || (sub.source && /free/i.test(sub.source) ? "free" : "basic");
+                            var tierColor = { free: "#10b981", basic: "#fbbf24", pro: "#a855f7" }[subTier] || "#6b7280";
+                            var isBest = sub === item;
+                            return (
+                              <div key={si} className="row-hover" onClick={function(){setHistoryModal(sub);}}
+                                style={{ display: "grid", gridTemplateColumns: "240px 80px 100px 1fr 110px 65px 210px", padding: "8px 16px 8px 60px", borderBottom: "1px solid rgba(255,255,255,0.03)", alignItems: "center", background: "rgba(251,191,36,0.025)", cursor: "pointer", fontSize: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div className="sans" style={{ color: "#9ca3af", fontWeight: 500, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 6 }}>
+                                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{sub.name}</span>
+                                      <span className="ticker" style={{ background: tierColor + "14", color: tierColor, fontSize: 8, padding: "1px 5px", borderRadius: 8, flexShrink: 0, textTransform: "uppercase" }}>{subTier}</span>
+                                      {isBest && <span className="ticker" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", fontSize: 8, padding: "1px 5px", borderRadius: 8, flexShrink: 0 }}>BEST</span>}
+                                    </div>
+                                    <div className="ticker" style={{ color: "#4a5568", fontSize: 9 }}>{sub.ts ? new Date(sub.ts).toLocaleString() : ""}</div>
+                                  </div>
+                                </div>
+                                <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap" }}>{sub.symbol||"—"}</span>
+                                <span className="ticker" style={{ color: "#4a5568", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.chain||"—"}</span>
+                                <div style={{ paddingRight: 8 }} onClick={function(e){e.stopPropagation();}}>
+                                  {subEmail
+                                    ? <span className="ticker" style={{ color: "#10b981", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160, display: "inline-block" }}>{subEmail}</span>
+                                    : <span className="ticker" style={{ color: "#1e2940", fontSize: 9 }}>—</span>}
+                                </div>
+                                <span className="ticker" style={{ fontSize: 9, color: ({ High: "#10b981", Medium: "#fbbf24", Low: "#ef4444" }[sub.confidence] || "#6b7280"), whiteSpace: "nowrap" }}>{(sub.confidence||"—").toUpperCase()}</span>
+                                <span className="sans" style={{ fontSize: 12, fontWeight: 600, color: "#6b7280" }}>{(sub.fullResult && sub.fullResult.bdScore)||"—"}</span>
+                                <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
+                                  <button onClick={function(){setHistoryModal(sub);}} className="ticker" style={{ padding: "3px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#6b7280", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>VIEW</button>
+                                </div>
+                              </div>
                             );
-                            addLead({ id: stableId, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: item.source||"DeFi", stage: "Listed", description: item.description||"", bdEmail: item.bdEmail||"", bdTelegram: item.bdTelegram||"", listingInterest: item.fullResult&&item.fullResult.listingInterest, bdScore: item.fullResult&&item.fullResult.bdScore, tags: [] });
-                            setPage("pipeline");
-                          }} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
-                          <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
+                          })}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
