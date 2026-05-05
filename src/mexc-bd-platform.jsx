@@ -336,7 +336,7 @@ const SCOUT_STEPS = [
   { icon: "💡", label: "BD profile" },
 ];
 
-function ScoutAIPage({ onAddLead, onAddToHistory }) {
+function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory }) {
   const [handle,  setHandle]  = useState("");
   const [phase,   setPhase]   = useState("idle");
   const [stream,  setStream]  = useState("");
@@ -438,6 +438,22 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
         : "You are a crypto BD researcher for an exchange listing team. Research the project @" + h + " thoroughly.\n\nSearch in this order:\n1. Find their official website — search '" + h + " crypto official website'\n2. Visit their website — check /contact, /about, /team pages for emails\n3. Search '" + h + " bd email listing contact'\n4. Check BSCScan or Etherscan for team emails\n5. Search LinkedIn for their BD or partnerships team\n6. Check their Telegram group for contact info\n\nReturn ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about what they do\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"domain.com\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real verified email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
+
+      // Check cache first — if already in history, use that instantly
+      const hist = contactHistory || [];
+      const cached = hist.find(item => {
+        const itemTwitter = (item.twitter || "").toLowerCase().replace("@", "");
+        const itemName = (item.name || "").toLowerCase();
+        const searchH = h.toLowerCase();
+        return itemTwitter === searchH || itemName === searchH;
+      });
+      if (cached && cached.fullResult) {
+        addLog("⚡ Found in history — loading saved result instantly!");
+        setResult(cached.fullResult);
+        setPhase("done");
+        return;
+      }
+
       let res = await SAFE_API(msgs);
 
       // If rate limited, fail immediately — no retries
@@ -1050,7 +1066,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
           ))}
         </div>
 
-        {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} />}
+        {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} contactHistory={contactHistory} />}
 
         {page === "autoscout" && (
           <div className="max-w-6xl mx-auto">
