@@ -101,7 +101,7 @@ const SAFE_API = async (messages) => {
       method: "POST",
       headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5",
+        model: "claude-sonnet-4-5",
         max_tokens: 1024,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
@@ -148,7 +148,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
       const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1024, stream: true,
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1024, stream: true,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: prompt }] }),
       });
@@ -392,8 +392,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
 
       const searchTarget = isWebsite ? handle.trim() : "@" + h;
       const prompt = isWebsite
-        ? "Find BD contact email for the crypto project at website " + handle.trim() + ". Search: 1) visit the website contact/about/team page directly for any email, 2) '" + handle.trim() + " email contact', 3) BSCScan or Etherscan for this project. Look for contact@, hello@, bd@, info@, partnerships@ emails. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"" + handle.trim() + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}"
-        : "Find BD contact email for crypto project @" + h + ". IMPORTANT: Search these in order: 1) '" + h + " crypto official website' to find their domain, 2) visit their website contact/about page for email, 3) '" + h + " email contact BD' 4) BSCScan or Etherscan token page. Look for any email like contact@, hello@, bd@, info@, partnerships@. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}";
+        ? "You are a crypto BD researcher. Find ALL contact information for the crypto project at website " + h + ". THOROUGHLY search: 1) Visit the website directly — check /contact, /about, /team pages for any email, 2) Search '" + h + " email BD contact', 3) Check BSCScan or Etherscan for this project. Look for ANY email: contact@, hello@, bd@, info@, partnerships@, listing@. Return ONLY raw JSON: {\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about the project\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"" + h + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip on how to reach them\"}]}"
+        : "You are a crypto BD researcher for an exchange listing team. Research the project @" + h + " thoroughly.\n\nSearch in this order:\n1. Find their official website — search '" + h + " crypto official website'\n2. Visit their website — check /contact, /about, /team pages for emails\n3. Search '" + h + " bd email listing contact'\n4. Check BSCScan or Etherscan for team emails\n5. Search LinkedIn for their BD or partnerships team\n6. Check their Telegram group for contact info\n\nReturn ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about what they do\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"domain.com\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real verified email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
       // Check cache first - if already in history, use that
@@ -419,7 +419,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
       }
 
       let ei = 0;
-      while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
+      while (res.stop_reason === "tool_use" && ei < 6 && !res._err) {
         ei++;
         for (const b of res.content) { if (b.type === "tool_use") addLog(`🔎 ${b.input && b.input.query}`); }
         const toolResults = res.content
@@ -804,7 +804,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5",
+          model: "claude-sonnet-4-5",
           max_tokens: 1024,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
@@ -820,7 +820,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
             body: JSON.stringify({
-              model: "claude-haiku-4-5", max_tokens: 1024,
+              model: "claude-sonnet-4-5", max_tokens: 1024,
               tools: [{ type: "web_search_20250305", name: "web_search" }],
               messages: [
                 { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
