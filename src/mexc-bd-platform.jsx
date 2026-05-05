@@ -126,8 +126,9 @@ function findCachedScout(history, input) {
   return null;
 }
 
-// Logo: shows Twitter avatar from unavatar.io with emoji fallback if image fails or no handle.
-// Pass: item (any object with .twitter and .logo), size in px, optional borderRadius.
+// Logo: shows a deterministic identicon from DiceBear based on twitter handle (or name as fallback).
+// DiceBear is free, has no rate limits, and generates a unique pattern per seed.
+// If the project has a real image URL in .logo (e.g. from DexScreener), use that directly.
 function Logo({ item, size = 28, radius = 4, fontSize }) {
   var [failed, setFailed] = useState(false);
   var handle = cleanTwitterHandle(item && item.twitter);
@@ -135,6 +136,8 @@ function Logo({ item, size = 28, radius = 4, fontSize }) {
   // If logo is already a URL (e.g. from DexScreener static feed), use it directly.
   var isExistingUrl = typeof fallback === "string" && /^https?:\/\//i.test(fallback);
   var emojiFontSize = fontSize || Math.round(size * 0.55);
+  // Seed for DiceBear — prefer twitter handle, fall back to project name
+  var seed = handle || (item && item.name && item.name.toLowerCase().replace(/\s+/g, "-")) || "";
 
   var common = {
     width: size,
@@ -159,10 +162,11 @@ function Logo({ item, size = 28, radius = 4, fontSize }) {
     );
   }
 
-  if (handle && !failed) {
+  if (seed && !failed) {
+    var dicebearUrl = "https://api.dicebear.com/7.x/identicon/svg?seed=" + encodeURIComponent(seed) + "&backgroundColor=fbbf24,ff6a00,8b5cf6,3b82f6,10b981&backgroundType=gradientLinear";
     return (
       <div style={common}>
-        <img src={"https://unavatar.io/twitter/" + handle} alt=""
+        <img src={dicebearUrl} alt=""
           onError={function(){setFailed(true);}}
           style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
