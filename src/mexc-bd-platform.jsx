@@ -212,20 +212,34 @@ function ScoreBar({ score, color = "#ff6a00" }) {
   );
 }
 
-const SAFE_API = async (messages) => {
+// SAFE_API supports two tiers that hit Claude:
+//   "basic" (default): web_search only, 5 uses cap, no web_fetch. ~$0.20/scout.
+//   "pro":  web_search 10 uses + web_fetch 2 uses with 8K page cap.   ~$0.50/scout.
+// "free" tier never calls this — it scrapes only on the client.
+const SAFE_API = async (messages, tier) => {
+  tier = tier || "basic";
+  const isPro = tier === "pro";
+  const tools = isPro
+    ? [
+        { type: "web_search_20250305", name: "web_search", max_uses: 10 },
+        { type: "web_fetch_20250910",  name: "web_fetch",  max_uses: 2, max_content_tokens: 8000 },
+      ]
+    : [
+        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+      ];
+  const headers = {
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+  };
+  if (isPro) headers["anthropic-beta"] = "web-fetch-2025-09-10";
   try {
     const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-      },
+      headers,
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 4000,
-        tools: [
-          { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-        ],
+        tools,
         messages,
       }),
     });
@@ -474,6 +488,10 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   const [resultTab, setResultTab] = useState("overview");
   const [externalLink, setExternalLink] = useState(null);
   const [dedupeFound, setDedupeFound] = useState(null); // { existing, requestedInput, requestedMode }
+  // Tier system: "free" = scrape only ($0), "basic" = current ($0.20), "pro" = web_fetch ($0.50)
+  const [tier, setTier] = useState("basic");
+  const [proConfirm, setProConfirm] = useState(null); // { rawHandle } — if set, show Pro warning modal
+  const proAccepted = useRef(false); // remember user's "don't ask again" choice within the session
   const forceRerun = useRef(false);
 
   const copy = function(text, key) {
@@ -560,12 +578,33 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   // using the project-key normalizer. If a match is found, opens the confirm modal
   // instead of immediately calling runScout. The modal then either loads the cached
   // result or invokes runScout with forceRerun.
+  // startScout dispatches by tier:
+  //   free  -> runFreeScout (scrape only, $0)
+  //   basic -> dedupe check, then runScout (current behavior, ~$0.20)
+  //   pro   -> Pro confirmation modal first time, then dedupe check + runScout, ~$0.50
   const startScout = (rawHandle) => {
     const isWebsite = searchMode === "website";
     const input = rawHandle || handle;
     const h = isWebsite ? (input || "").trim() : cleanHandle(input);
     if (!h) return;
 
+    // FREE TIER: only available in Website URL mode (no website = nothing to scrape)
+    if (tier === "free") {
+      if (!isWebsite) {
+        // Should not be reachable — UI hides Free button in Twitter mode — but be defensive
+        return;
+      }
+      runFreeScout(input);
+      return;
+    }
+
+    // PRO TIER: show confirmation modal on first use this session
+    if (tier === "pro" && !proAccepted.current) {
+      setProConfirm({ rawHandle: rawHandle });
+      return;
+    }
+
+    // BASIC + PRO (after confirm): dedupe check first, then runScout
     const existing = findCachedScout(contactHistory, isWebsite ? h : "@" + h);
     if (existing && existing.fullResult && !forceRerun.current) {
       setDedupeFound({ existing, requestedInput: input, requestedMode: searchMode });
@@ -574,7 +613,141 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
     runScout(rawHandle);
   };
 
-  const runScout = async (rawHandle) => {
+  // FREE TIER: pure client-side scrape, never calls Claude. $0.00 per scout.
+  // Best for projects where you just want to confirm a contact email exists on their site.
+  // Returns a minimal result — no project intel, no scoring, no contacts table — just verified data.
+  const runFreeScout = async (websiteInput) => {
+    setPhase("loading"); setStream(""); setResult(null); setResultTab("overview");
+    let log = "";
+    const addLog = line => { log += line + "\n"; setStream(log); };
+
+    try {
+      addLog("🆓 FREE scout — scraping website directly (no AI cost)");
+
+      // Normalize URL
+      var rootUrl = (websiteInput || "").trim();
+      if (!/^https?:\/\//.test(rootUrl)) rootUrl = "https://" + rootUrl;
+      rootUrl = rootUrl.replace(/\/+$/, "");
+      // Extract just the domain root for /contact etc. (strip /any/path off the end)
+      var domainRoot = rootUrl.replace(/^(https?:\/\/[^\/]+).*/, "$1");
+
+      addLog("🌐 Target: " + domainRoot);
+
+      // Page priority: homepage first (often has meta tags), then contact pages
+      var paths = ["", "/contact", "/about", "/team", "/contact-us", "/about-us"];
+
+      var isJunkEmail = function(e) {
+        var lower = e.toLowerCase();
+        if (/^(noreply|no-reply|do-not-reply|donotreply)@/.test(lower)) return true;
+        if (/@(sentry|stripe|google|wix|squarespace|godaddy|namecheap|cloudflare|amazonaws|sendgrid|mailgun|intercom|zendesk|hubspot)\./.test(lower)) return true;
+        if (/(example|test|domain|email|yourdomain|sample)\.(com|org|net)/.test(lower)) return true;
+        if (/\.(png|jpg|gif|svg|css|js|woff|ttf|webp)$/i.test(lower)) return true;
+        return false;
+      };
+
+      var allEmails = [];
+      var projectName = "";
+      var description = "";
+      var twitter = "";
+
+      for (var i = 0; i < paths.length; i++) {
+        var url = domainRoot + paths[i];
+        addLog("📄 Fetching " + (paths[i] || "/") + "…");
+        try {
+          var pageText = await fetchPage(url);
+          if (!pageText) continue;
+
+          // Emails
+          var pageEmails = extractEmails(pageText).filter(function(e){ return !isJunkEmail(e); });
+          pageEmails.forEach(function(e){ if (allEmails.indexOf(e) === -1) allEmails.push(e); });
+
+          // From homepage, also pull meta description and title for project name
+          if (paths[i] === "") {
+            var titleMatch = pageText.match(/<title[^>]*>([^<]+)<\/title>/i);
+            if (titleMatch) projectName = titleMatch[1].trim().replace(/\s*[-—|]\s*.*$/, "").slice(0, 80);
+            var descMatch = pageText.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)
+                          || pageText.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i)
+                          || pageText.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+            if (descMatch) description = descMatch[1].trim().slice(0, 300);
+            // Twitter handle from twitter:site meta tag or first twitter.com link
+            var twMatch = pageText.match(/<meta[^>]+name=["']twitter:site["'][^>]+content=["']@?([a-zA-Z0-9_]+)["']/i)
+                       || pageText.match(/(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)/);
+            if (twMatch) twitter = "@" + twMatch[1];
+          }
+        } catch (pageErr) {
+          // Silently skip failed pages
+        }
+      }
+
+      // Pick best email (BD/contact-style preferred)
+      allEmails.sort(function(a, b) {
+        var aP = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(a) ? 0 : 1;
+        var bP = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(b) ? 0 : 1;
+        return aP - bP;
+      });
+      var bestEmail = allEmails[0] || "Unknown";
+
+      // Build a minimal result. Mark dataQuality based on what we actually found.
+      var quality = bestEmail !== "Unknown" ? "Medium" : "Low";
+
+      var freeResult = {
+        projectName: projectName || domainRoot.replace(/^https?:\/\//, "").replace(/^www\./, ""),
+        symbol: "",
+        emoji: "🆓",
+        tagline: description ? description.slice(0, 100) : "Free tier — basic scrape result",
+        description: description || "Free tier scout — only website scraping was performed. Upgrade to Basic for full AI research.",
+        category: "Unknown",
+        stage: "Unknown",
+        chain: "Unknown",
+        website: domainRoot,
+        twitter: twitter || "Unknown",
+        telegram: "Unknown",
+        bdEmail: bestEmail,
+        bdTelegram: "Unknown",
+        bestContactPath: bestEmail !== "Unknown" ? ("Email: " + bestEmail) : "Visit " + domainRoot + " manually",
+        outreachStrategy: "Free tier provides only verified emails from the website. For tailored outreach strategy, run a Basic or Pro scout.",
+        bdScore: bestEmail !== "Unknown" ? 60 : 30,
+        listingInterest: "Unknown",
+        dataQuality: quality,
+        contacts: [],
+        tags: ["free-tier"],
+        _tier: "free",
+      };
+
+      if (allEmails.length > 1) {
+        addLog("✅ Found " + allEmails.length + " emails: " + allEmails.slice(0, 3).join(", "));
+      } else if (bestEmail !== "Unknown") {
+        addLog("✅ Found email: " + bestEmail);
+      } else {
+        addLog("ℹ️ No public email found on site");
+      }
+
+      setResult(freeResult);
+      setHistory(prev => [{ handle: domainRoot, result: freeResult, ts: new Date() }, ...prev].slice(0, 10));
+      if (onAddToHistory) onAddToHistory({
+        name: freeResult.projectName,
+        symbol: "",
+        logo: "🆓",
+        source: "Scout AI (Free)",
+        twitter: freeResult.twitter,
+        bdEmail: freeResult.bdEmail,
+        bdTelegram: "Unknown",
+        bestContactPath: freeResult.bestContactPath,
+        confidence: freeResult.dataQuality,
+        website: freeResult.website,
+        chain: "Unknown",
+        description: freeResult.tagline,
+        fullResult: freeResult,
+      });
+      setPhase("done");
+    } catch (e) {
+      addLog("❌ " + (e && e.message ? e.message : "Free scout failed"));
+      setPhase("error");
+    }
+  };
+
+  const runScout = async (rawHandle, tierOverride) => {
+    const activeTier = tierOverride || tier;
     const isWebsite = searchMode === "website";
     const h = isWebsite ? handle.trim() : cleanHandle(rawHandle || handle);
     if (!h) return;
@@ -629,7 +802,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       }
       forceRerun.current = false;
 
-      let res = await SAFE_API(msgs);
+      let res = await SAFE_API(msgs, activeTier);
 
       // Backend / network failure
       if (res._err) {
@@ -652,18 +825,22 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
         ei++;
         for (const b of res.content) {
           if (b.type === "tool_use") {
-            addLog("🔎 " + (b.input && b.input.query ? b.input.query : "searching"));
+            if (b.name === "web_fetch") {
+              addLog("📄 " + (b.input && b.input.url ? b.input.url : "fetching page"));
+            } else {
+              addLog("🔎 " + (b.input && b.input.query ? b.input.query : "searching"));
+            }
           }
         }
         const toolResults = res.content
           .filter(b => b.type === "tool_use")
-          .map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." }));
+          .map(b => ({ type: "tool_result", tool_use_id: b.id, content: b.name === "web_fetch" ? "Fetch completed." : "Search completed." }));
         msgs = [
           { role: "user", content: cachedPrompt },
           { role: "assistant", content: res.content },
           { role: "user", content: toolResults }
         ];
-        res = await SAFE_API(msgs);
+        res = await SAFE_API(msgs, activeTier);
         // Stop immediately if rate limited mid-search
         if (res.error && res.error.type === "rate_limit_error") {
           clearInterval(heartbeat);
@@ -719,16 +896,16 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
               var pageText = await fetchPage(pageUrl);
               console.log("[Scout enrichment] Got " + (pageText ? pageText.length : 0) + " chars from " + pageUrl);
               if (pageText) {
-                var emails = extractEmails(pageText).filter(function(e){ return !isJunkEmail(e); });
-                console.log("[Scout enrichment] Found emails on page:", emails);
-                if (emails.length > 0) {
+                var foundEmails = extractEmails(pageText).filter(function(e){ return !isJunkEmail(e); });
+                console.log("[Scout enrichment] Found emails on page:", foundEmails);
+                if (foundEmails.length > 0) {
                   // Prefer BD/contact-style emails over generic ones
-                  emails.sort(function(a, b) {
+                  foundEmails.sort(function(a, b) {
                     var aPriority = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(a) ? 0 : 1;
                     var bPriority = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(b) ? 0 : 1;
                     return aPriority - bPriority;
                   });
-                  foundEmail = emails[0];
+                  foundEmail = foundEmails[0];
                   foundOnPath = candidatePaths[pi] || "/";
                   addLog("✅ Verified email on " + foundOnPath + ": " + foundEmail);
                 }
@@ -842,9 +1019,47 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           {[["twitter","TWITTER HANDLE"],["website","WEBSITE URL"]].map(function(m) {
             var active = searchMode === m[0];
             return (
-              <button key={m[0]} onClick={() => { setSearchMode(m[0]); setHandle(""); }} className="ticker"
+              <button key={m[0]} onClick={() => { setSearchMode(m[0]); setHandle(""); if (m[0] === "twitter" && tier === "free") setTier("basic"); }} className="ticker"
                 style={{ padding: "5px 12px", borderRadius: 3, border: "1px solid " + (active ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.06)"), background: active ? "rgba(251,191,36,0.08)" : "transparent", color: active ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 10, transition: "all 0.15s" }}>
                 {m[1]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tier picker */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, alignItems: "center" }}>
+          <span className="ticker" style={{ color: "#374151", fontSize: 10, marginRight: 4 }}>TIER:</span>
+          {[
+            { id: "free",  label: "FREE",  cost: "$0",     color: "#10b981", desc: "Scrape only — Website mode only" },
+            { id: "basic", label: "BASIC", cost: "~$0.20", color: "#fbbf24", desc: "AI + web search + scraper (recommended)" },
+            { id: "pro",   label: "PRO",   cost: "~$0.50", color: "#a855f7", desc: "AI + 10 searches + page reads (deep research)" },
+          ].map(function(t) {
+            var active = tier === t.id;
+            var disabled = t.id === "free" && searchMode !== "website";
+            return (
+              <button
+                key={t.id}
+                onClick={function(){ if (!disabled) setTier(t.id); }}
+                disabled={disabled}
+                title={disabled ? "Free tier requires Website URL mode" : t.desc}
+                className="ticker"
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 3,
+                  border: "1px solid " + (active ? t.color + "66" : "rgba(255,255,255,0.06)"),
+                  background: active ? t.color + "14" : "transparent",
+                  color: disabled ? "#2a2f38" : (active ? t.color : "#4a5568"),
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  fontSize: 10,
+                  transition: "all 0.15s",
+                  opacity: disabled ? 0.4 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}>
+                <span>{t.label}</span>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>{t.cost}</span>
               </button>
             );
           })}
@@ -1346,6 +1561,49 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
               </button>
               <button onClick={function(){ setDedupeFound(null); }} className="ticker"
                 style={{ padding: "10px 16px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#4a5568", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pro tier confirmation modal */}
+      {proConfirm && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={function(){ setProConfirm(null); }}>
+          <div onClick={function(e){ e.stopPropagation(); }}
+            style={{ background: "#0d1117", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 6, padding: 28, maxWidth: 480, width: "100%", boxShadow: "0 0 40px rgba(168,85,247,0.15)" }}>
+            <div className="ticker" style={{ color: "#a855f7", fontSize: 10, marginBottom: 12, letterSpacing: 1 }}>● PRO SCOUT — CONFIRM</div>
+            <div className="sans" style={{ color: "#f0f6fc", fontSize: 16, fontWeight: 500, marginBottom: 14 }}>
+              Pro scouts cost ~$0.50 each
+            </div>
+            <div className="sans" style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
+              Pro tier uses 10 web searches + reads 2 full pages with Claude. Best for hard-to-find pre-launch projects. About 2.5× more expensive than Basic ($0.20).
+              <br/><br/>
+              <span style={{ color: "#fbbf24" }}>If you just want a verified email, try Free or Basic first.</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={function(){
+                  proAccepted.current = true;
+                  var rh = proConfirm.rawHandle;
+                  setProConfirm(null);
+                  // Re-trigger startScout flow now that user has accepted
+                  setTimeout(function(){ startScout(rh); }, 0);
+                }} className="ticker"
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 4, border: "1px solid rgba(168,85,247,0.4)", background: "rgba(168,85,247,0.1)", color: "#a855f7", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                CONTINUE → ~$0.50
+              </button>
+              <button onClick={function(){
+                  setTier("basic");
+                  var rh = proConfirm.rawHandle;
+                  setProConfirm(null);
+                  setTimeout(function(){ startScout(rh); }, 0);
+                }} className="ticker"
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 4, border: "1px solid rgba(251,191,36,0.3)", background: "transparent", color: "#fbbf24", cursor: "pointer", fontSize: 11 }}>
+                USE BASIC INSTEAD
+              </button>
+              <button onClick={function(){ setProConfirm(null); }} className="ticker"
+                style={{ padding: "10px 16px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#6b7280", cursor: "pointer", fontSize: 11 }}>
                 CANCEL
               </button>
             </div>
