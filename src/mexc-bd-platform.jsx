@@ -336,7 +336,7 @@ const SCOUT_STEPS = [
   { icon: "💡", label: "BD profile" },
 ];
 
-function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory }) {
+function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   const [handle,  setHandle]  = useState("");
   const [phase,   setPhase]   = useState("idle");
   const [stream,  setStream]  = useState("");
@@ -439,19 +439,21 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory }) {
 
       let msgs = [{ role: "user", content: prompt }];
 
-      // Check cache first — if already in history, use that instantly
+      // Check cache first — wait briefly if DB still loading
       const hist = contactHistory || [];
-      const cached = hist.find(item => {
-        const itemTwitter = (item.twitter || "").toLowerCase().replace("@", "");
-        const itemName = (item.name || "").toLowerCase();
-        const searchH = h.toLowerCase();
-        return itemTwitter === searchH || itemName === searchH;
-      });
-      if (cached && cached.fullResult) {
-        addLog("⚡ Found in history — loading saved result instantly!");
-        setResult(cached.fullResult);
-        setPhase("done");
-        return;
+      if (hist.length > 0) {
+        const cached = hist.find(item => {
+          const itemTwitter = (item.twitter || "").toLowerCase().replace("@", "");
+          const itemName = (item.name || "").toLowerCase();
+          const searchH = h.toLowerCase();
+          return itemTwitter === searchH || itemName === searchH;
+        });
+        if (cached && cached.fullResult) {
+          addLog("⚡ Found in history — loading saved result instantly!");
+          setResult(cached.fullResult);
+          setPhase("done");
+          return;
+        }
       }
 
       let res = await SAFE_API(msgs);
@@ -554,9 +556,9 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory }) {
                 className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white text-sm outline-none"
                 style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }} />
             </div>
-            <button onClick={() => runScout()} disabled={phase === "loading"} className="px-6 py-3.5 rounded-xl font-semibold text-sm transition-all hover:scale-105 disabled:opacity-60 whitespace-nowrap"
+            <button onClick={() => runScout()} disabled={phase === "loading" || dbLoading} className="px-6 py-3.5 rounded-xl font-semibold text-sm transition-all hover:scale-105 disabled:opacity-60 whitespace-nowrap"
               style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-              {phase === "loading" ? "Scouting…" : "🔍 Scout"}
+              {phase === "loading" ? "Scouting…" : dbLoading ? "Loading…" : "🔍 Scout"}
             </button>
           </div>
           <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
@@ -1066,7 +1068,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
           ))}
         </div>
 
-        {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} contactHistory={contactHistory} />}
+        {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} contactHistory={contactHistory} dbLoading={dbLoading} />}
 
         {page === "autoscout" && (
           <div className="max-w-6xl mx-auto">
