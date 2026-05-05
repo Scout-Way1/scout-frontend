@@ -603,7 +603,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
         ? "You are a crypto BD researcher. Find ALL contact information for the crypto project at website " + h + ".\n\nSEARCH STRATEGY:\n1. Search '" + h + " contact email' to find their contact page in search results\n2. Search '" + h + " bd partnerships listing' for BD-specific contacts\n3. Search '" + h + " team founder linkedin' for individual team members\n4. Check BSCScan / Etherscan if it's a token project\n5. Read the search result snippets carefully — emails are often in the snippet preview\n\nLook for ANY email in the search results: contact@, hello@, bd@, info@, partnerships@, listing@, team@, named-employee emails. Return ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about the project\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"" + h + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip on how to reach them\"}]}"
         : "You are a crypto BD researcher for an exchange listing team. Research the project @" + h + " thoroughly.\n\nSEARCH STRATEGY:\n1. Search '" + h + " crypto official website' to find their domain\n2. Search '" + h + " contact email bd partnerships' for BD contacts\n3. Search '" + h + " team founder linkedin' for individual team members\n4. Search '" + h + " listing exchange contact' for listing-team specific info\n5. Read the search result snippets carefully — emails are often in the snippet preview\n\nLook for ANY email in the search results: contact@, hello@, bd@, info@, partnerships@, listing@, team@, named-employee emails. Return ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about what they do\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"domain.com\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real verified email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip\"}]}";
 
-      let msgs = [{ role: "user", content: prompt }];
+      // Wrap prompt in cache_control so the 5 loop iterations within a scout
+      // (and any scouts within 5 minutes) only pay full price for the prompt once.
+      // Cache reads are 10% of standard input cost — savings stack across iterations.
+      const cachedPrompt = [{ type: "text", text: prompt, cache_control: { type: "ephemeral" } }];
+
+      let msgs = [{ role: "user", content: cachedPrompt }];
 
       // Check cache first — skip if user clicked Rerun
       const hist = contactHistory || [];
@@ -654,7 +659,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           .filter(b => b.type === "tool_use")
           .map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." }));
         msgs = [
-          { role: "user", content: prompt },
+          { role: "user", content: cachedPrompt },
           { role: "assistant", content: res.content },
           { role: "user", content: toolResults }
         ];
