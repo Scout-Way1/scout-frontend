@@ -82,6 +82,50 @@ function cleanTwitterHandle(raw) {
     .toLowerCase();
 }
 
+// Extracts the registrable domain root (e.g. "ethereum.org" → "ethereum",
+// "https://www.solana.com/foo" → "solana"). Used as a coarse project key.
+function rootFromDomain(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  var d = raw.trim().toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .replace(/\?.*$/, "");
+  // strip TLD: ethereum.org → ethereum, hyperliquid.xyz → hyperliquid
+  // we only keep the leftmost label since project shortnames live there
+  var parts = d.split(".");
+  return parts[0] || "";
+}
+
+// Builds a single normalized "project key" from any input — Twitter handle or website URL.
+// Both "@ethereum" and "https://ethereum.org/" should produce "ethereum".
+function projectKey(input) {
+  if (!input) return "";
+  var s = String(input).trim();
+  if (!s) return "";
+  // URL-ish? treat as website
+  if (/^https?:\/\//i.test(s) || /\.[a-z]{2,}(\/|$|\?)/i.test(s)) {
+    return rootFromDomain(s);
+  }
+  // otherwise treat as twitter handle
+  return cleanTwitterHandle(s);
+}
+
+// Find an existing history record that matches an input across twitter / website / name.
+function findCachedScout(history, input) {
+  if (!history || !history.length || !input) return null;
+  var key = projectKey(input);
+  if (!key) return null;
+  for (var i = 0; i < history.length; i++) {
+    var item = history[i];
+    var twitterKey = projectKey(item.twitter);
+    var websiteKey = projectKey(item.website);
+    var nameKey    = (item.name || "").toLowerCase().replace(/\s+/g, "");
+    if (key === twitterKey || key === websiteKey || key === nameKey) return item;
+  }
+  return null;
+}
+
 // Logo: shows Twitter avatar from unavatar.io with emoji fallback if image fails or no handle.
 // Pass: item (any object with .twitter and .logo), size in px, optional borderRadius.
 function Logo({ item, size = 28, radius = 4, fontSize }) {
@@ -420,6 +464,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
   const [searchMode, setSearchMode] = useState("twitter");
   const [resultTab, setResultTab] = useState("overview");
   const [externalLink, setExternalLink] = useState(null);
+  const [dedupeFound, setDedupeFound] = useState(null); // { existing, requestedInput, requestedMode }
   const forceRerun = useRef(false);
 
   const copy = function(text, key) {
@@ -500,6 +545,24 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       !e.match(/\.(png|jpg|gif|svg|css|js|woff|ttf)/i) &&
       !e.startsWith("//") && e.includes(".")
     );
+  };
+
+  // Entry point for user-initiated scouts. Performs preflight dedupe against history
+  // using the project-key normalizer. If a match is found, opens the confirm modal
+  // instead of immediately calling runScout. The modal then either loads the cached
+  // result or invokes runScout with forceRerun.
+  const startScout = (rawHandle) => {
+    const isWebsite = searchMode === "website";
+    const input = rawHandle || handle;
+    const h = isWebsite ? (input || "").trim() : cleanHandle(input);
+    if (!h) return;
+
+    const existing = findCachedScout(contactHistory, isWebsite ? h : "@" + h);
+    if (existing && existing.fullResult && !forceRerun.current) {
+      setDedupeFound({ existing, requestedInput: input, requestedMode: searchMode });
+      return;
+    }
+    runScout(rawHandle);
   };
 
   const runScout = async (rawHandle) => {
@@ -671,11 +734,11 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
               setHandle(val);
               if (val.startsWith("http") || val.startsWith("www.")) setSearchMode("website");
               else if (val.startsWith("@")) setSearchMode("twitter");
-            }} onKeyDown={function(e) { if (e.key === "Enter") runScout(); }}
+            }} onKeyDown={function(e) { if (e.key === "Enter") startScout(); }}
               placeholder={searchMode === "twitter" ? "twitterhandle" : "https://projectsite.com"}
               style={{ width: "100%", paddingLeft: 32, paddingRight: 14, paddingTop: 11, paddingBottom: 11, background: "#080a0f", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4, color: "#f0f6fc", fontSize: 14, outline: "none", fontFamily: "'IBM Plex Mono', monospace" }} />
           </div>
-          <button onClick={function() { runScout(); }} disabled={phase === "loading" || dbLoading} className="scout-btn ticker"
+          <button onClick={function() { startScout(); }} disabled={phase === "loading" || dbLoading} className="scout-btn ticker"
             style={{ padding: "11px 24px", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: 11, fontWeight: 600, opacity: phase === "loading" || dbLoading ? 0.5 : 1, whiteSpace: "nowrap", transition: "all 0.15s" }}>
             {phase === "loading" ? "SCANNING..." : dbLoading ? "LOADING..." : "RUN SCOUT →"}
           </button>
@@ -686,7 +749,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           <span className="ticker" style={{ color: "#374151", fontSize: 10 }}>TRY:</span>
           {["@monad_xyz", "@berachain", "@KaitoAI", "@virtuals_io", "@aixovia"].map(function(ex) {
             return (
-              <button key={ex} onClick={function() { setHandle(ex); runScout(ex); }} className="ticker"
+              <button key={ex} onClick={function() { setHandle(ex); startScout(ex); }} className="ticker"
                 style={{ fontSize: 10, padding: "3px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer" }}>
                 {ex}
               </button>
@@ -1035,11 +1098,31 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           )}
 
           {/* ACTION BUTTONS */}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
             <button onClick={function() { onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, twitter: result.twitter, website: result.website, telegram: result.telegram, bdEmail: result.bdEmail, bdTelegram: result.bdTelegram, listingInterest: result.listingInterest, bdScore: result.bdScore, tags: result.tags || [] }); }} className="ticker"
-              style={{ flex: 1, padding: "11px 0", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.08)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+              style={{ flex: 1, minWidth: 160, padding: "11px 0", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.08)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
               + ADD TO PIPELINE
             </button>
+
+            {/* Rescout via Website — only shows when the current scout was Twitter-based and we have a website to use */}
+            {searchMode === "twitter" && result.website && result.website !== "Unknown" && result.website !== "" && (
+              <button onClick={function() {
+                var confirmed = window.confirm("Rescout " + result.projectName + " via website (" + result.website + ")?\n\nWebsite scouts often surface more team contacts. This will overwrite the saved result.");
+                if (confirmed) {
+                  forceRerun.current = true;
+                  var w = result.website.replace(/^https?:\/\//, "").replace(/^www\./, "");
+                  setHandle(w);
+                  setSearchMode("website");
+                  setResult(null);
+                  setPhase("loading");
+                  setStream("");
+                  runScout(w);
+                }
+              }} className="ticker" style={{ padding: "11px 14px", borderRadius: 4, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.06)", color: "#10b981", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                🌐 RESCOUT VIA WEBSITE
+              </button>
+            )}
+
             <button onClick={function() {
               var confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
               if (confirmed) { forceRerun.current = true; var h = handle; setResult(null); setPhase("loading"); setStream(""); runScout(h); }
@@ -1083,6 +1166,65 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           {stream && <pre className="text-gray-500 text-xs mb-4 text-left bg-black rounded-lg p-3 max-h-40 overflow-y-auto">{stream}</pre>}
           <p className="text-gray-500 text-sm mb-4">Check the handle and try again.</p>
           <button onClick={() => { setPhase("idle"); setResult(null); }} className="px-5 py-2 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.12)", color: "#f87171" }}>← Try Again</button>
+        </div>
+      )}
+
+      {/* DEDUPE CONFIRMATION MODAL */}
+      {dedupeFound && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }} onClick={function(){ setDedupeFound(null); }}>
+          <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 6, padding: 28, maxWidth: 520, width: "100%" }} onClick={function(e){ e.stopPropagation(); }}>
+            <div className="ticker" style={{ fontSize: 9, color: "#fbbf24", letterSpacing: "0.1em", marginBottom: 14 }}>ALREADY SCOUTED</div>
+            <p className="sans" style={{ color: "#c9d1d9", fontSize: 14, margin: "0 0 14px", lineHeight: 1.5 }}>
+              You already have <strong style={{ color: "#f0f6fc" }}>{dedupeFound.existing.name || dedupeFound.existing.fullResult?.projectName}</strong> in your history.
+            </p>
+
+            <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <Logo item={dedupeFound.existing} size={32} radius={4} fontSize={16} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="sans" style={{ color: "#f0f6fc", fontSize: 14, fontWeight: 600 }}>{dedupeFound.existing.name}</div>
+                  <div className="ticker" style={{ color: "#6b7280", fontSize: 10 }}>
+                    {dedupeFound.existing.twitter || ""}{dedupeFound.existing.twitter && dedupeFound.existing.website ? " · " : ""}{dedupeFound.existing.website || ""}
+                  </div>
+                </div>
+              </div>
+              {bestEmail(dedupeFound.existing) && (
+                <div className="ticker" style={{ fontSize: 11, color: "#10b981", marginTop: 6 }}>📧 {bestEmail(dedupeFound.existing)}</div>
+              )}
+            </div>
+
+            <p className="sans" style={{ color: "#6b7280", fontSize: 12, marginBottom: 18, lineHeight: 1.6 }}>
+              {dedupeFound.requestedMode === "website" && !dedupeFound.existing.website
+                ? "💡 Tip: rescouting via website often finds more team contacts than the original Twitter scout."
+                : "Use the existing record to save an API call, or rescout to refresh the data."}
+            </p>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={function(){
+                  // Load existing into the result view
+                  setResult(dedupeFound.existing.fullResult);
+                  setPhase("done");
+                  setResultTab("overview");
+                  setDedupeFound(null);
+                }} className="ticker"
+                style={{ flex: 1, minWidth: 140, padding: "10px 14px", borderRadius: 4, border: "1px solid rgba(16,185,129,0.4)", background: "rgba(16,185,129,0.1)", color: "#10b981", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                USE EXISTING ⚡
+              </button>
+              <button onClick={function(){
+                  forceRerun.current = true;
+                  var pending = dedupeFound;
+                  setDedupeFound(null);
+                  runScout(pending.requestedInput);
+                }} className="ticker"
+                style={{ flex: 1, minWidth: 140, padding: "10px 14px", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                RESCOUT ↻
+              </button>
+              <button onClick={function(){ setDedupeFound(null); }} className="ticker"
+                style={{ padding: "10px 16px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#4a5568", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
+                CANCEL
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
