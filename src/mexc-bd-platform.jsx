@@ -1241,7 +1241,7 @@ export default function App() {
         input::placeholder { color: #3d4f6b; }
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
         @keyframes scan-line { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         .fade-in { animation: fadeIn 0.3s ease forwards; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
