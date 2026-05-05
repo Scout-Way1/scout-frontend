@@ -1579,7 +1579,7 @@ export default function App() {
             ) : (
               <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
                 <div style={{ minWidth: 860 }}>
-                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 155px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 210px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
                     <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>BD EMAIL</span><span>CONFIDENCE</span><span>SCORE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
                   </div>
                   {contactHistory.filter(function(h){
@@ -1593,7 +1593,7 @@ export default function App() {
                     var scoreCol = score >= 70 ? "#10b981" : score >= 40 ? "#fbbf24" : "#ef4444";
                     return (
                       <div key={i} className="row-hover" onClick={function(){setHistoryModal(item);}}
-                        style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 155px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
+                        style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 210px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                           <div style={{ width: 30, height: 30, borderRadius: 4, background: hasEmail ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.05)", border: "1px solid " + (hasEmail ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{item.logo||"🪙"}</div>
                           <div style={{ minWidth: 0 }}>
@@ -1615,6 +1615,7 @@ export default function App() {
                         <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
                         <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
                           <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
+                          <button onClick={function(){addLead({ id: "h-" + i, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: "DeFi", stage: "Listed", description: item.description||"", tags: [] }); setPage("pipeline");}} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
                           <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
                         </div>
                       </div>
