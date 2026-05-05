@@ -124,6 +124,48 @@ const SAFE_JSON = (text) => {
   }
 };
 
+const SB_URL = "https://omxeljgktkghgrjbzxpf.supabase.co";
+const SB_KEY = "sb_publishable_yZOkLpux3c6_TUSv0Ym15A_zhWk752_";
+
+const sbFetch = async (path, method, body) => {
+  try {
+    const opts = {
+      method: method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SB_KEY,
+        "Authorization": "Bearer " + SB_KEY,
+        "Prefer": method === "POST" ? "return=representation" : "",
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(SB_URL + "/rest/v1" + path, opts);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  } catch(e) { return null; }
+};
+
+const sbGetHistory = () => sbFetch("/scout_history?order=created_at.desc&limit=200");
+const sbAddHistory = (entry) => sbFetch("/scout_history", "POST", {
+  name: entry.name || "", symbol: entry.symbol || "", logo: entry.logo || "🛸",
+  source: entry.source || "Scout AI", twitter: entry.twitter || "",
+  website: entry.website || "", chain: entry.chain || "",
+  bd_email: entry.bdEmail || "", bd_telegram: entry.bdTelegram || "",
+  best_contact_path: entry.bestContactPath || "", confidence: entry.confidence || "",
+  description: entry.description || "", full_result: entry.fullResult || null,
+});
+const sbGetPipeline = () => sbFetch("/scout_pipeline?order=created_at.desc");
+const sbAddPipeline = (p) => sbFetch("/scout_pipeline", "POST", {
+  project_id: String(p.id), name: p.name || "", symbol: p.symbol || "",
+  logo: p.logo || "", twitter: p.twitter || "", website: p.website || "",
+  chain: p.chain || "", category: p.category || "", stage: p.stage || "",
+  description: p.description || "",
+});
+const sbRemovePipeline = (project_id) => sbFetch("/scout_pipeline?project_id=eq." + project_id, "DELETE");
+
+
+
 function AIContactModal({ project, onClose }) {
   const [phase,    setPhase]    = useState("idle");
   const [contacts, setContacts] = useState(null);
@@ -858,15 +900,45 @@ export default function App() {
 
   const dexDisplay = dexData[dexTab] || [];
 
-  const addLead = p => { if (!leads.find(l => l.id === p.id)) setLeads(prev => [...prev, p]); };
+  const addLead = p => {
+    if (!leads.find(l => l.id === p.id)) {
+      setLeads(prev => [...prev, p]);
+      sbAddPipeline(p);
+    }
+  };
+
+  const removeLead = id => {
+    setLeads(prev => prev.filter(l => l.id !== id));
+    sbRemovePipeline(String(id));
+  };
 
   const [contactHistory, setContactHistory] = useState([]);
+  const [dbLoading, setDbLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([sbGetHistory(), sbGetPipeline()]).then(([hist, pipe]) => {
+      if (hist) setContactHistory(hist.map(r => ({
+        name: r.name, symbol: r.symbol, logo: r.logo, source: r.source,
+        twitter: r.twitter, website: r.website, chain: r.chain,
+        bdEmail: r.bd_email, bdTelegram: r.bd_telegram,
+        bestContactPath: r.best_contact_path, confidence: r.confidence,
+        description: r.description, fullResult: r.full_result, ts: r.created_at,
+      })));
+      if (pipe) setLeads(pipe.map(r => ({
+        id: r.project_id, name: r.name, symbol: r.symbol, logo: r.logo,
+        twitter: r.twitter, website: r.website, chain: r.chain,
+        category: r.category, stage: r.stage, description: r.description,
+      })));
+      setDbLoading(false);
+    });
+  }, []);
   const addToHistory = entry => {
     setContactHistory(prev => {
       const key = (entry.name || "") + (entry.symbol || "");
       const filtered = prev.filter(h => (h.name || "") + (h.symbol || "") !== key);
       return [{ ...entry, ts: new Date() }, ...filtered].slice(0, 200);
     });
+    sbAddHistory(entry);
   };
   const [historyModal, setHistoryModal] = useState(null);
 
@@ -1260,7 +1332,7 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
                 <p className="text-gray-600 text-sm mt-1">All AI-scraped contacts — never research the same project twice</p>
               </div>
               {contactHistory.length > 0 && (
-                <button onClick={() => setContactHistory([])} className="px-3 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <button onClick={() => { setContactHistory([]); sbFetch("/scout_history", "DELETE"); }} className="px-3 py-1.5 rounded-lg text-xs" style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
                   Clear all
                 </button>
               )}
