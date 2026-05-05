@@ -911,7 +911,7 @@ export default function App() {
   const [catTab,   setCatTab]   = useState("all");
   const [stageFilt,setStageFilt]= useState("All");
   const [search,   setSearch]   = useState("");
-  const [page,     setPage]     = useState("home");
+  const [page,     setPage]     = useState("scout");
   const [leads,    setLeads]    = useState([]);
   const [selected, setSelected] = useState(null);
   const [contact,  setContact]  = useState(null);
@@ -1032,11 +1032,9 @@ export default function App() {
   const colLabel   = viewTab === "trending" ? "Trend" : viewTab === "gainers" ? "Gain" : viewTab === "new" ? "Added" : "Rank";
 
   const NAV = [
-    { id: "home",      label: "📊 Projects" },
-    { id: "scout",     label: "🛸 Scout AI", badge: "LIVE" },
-    { id: "autoscout", label: "⚡ Auto Scout", badge: autoRunning ? "LIVE" : doneCount > 0 ? String(doneCount) : "NEW" },
-    { id: "pipeline",  label: `📋 Pipeline (${leads.length})` },
-    { id: "history",   label: "🕓 History", badge: contactHistory.length > 0 ? String(contactHistory.length) : undefined },
+    { id: "scout",    label: "🛸 Scout AI", badge: "LIVE" },
+    { id: "pipeline", label: "📋 Pipeline (" + leads.length + ")" },
+    { id: "history",  label: "🕓 History", badge: contactHistory.length > 0 ? String(contactHistory.length) : undefined },
   ];
 
   return (
@@ -1074,20 +1072,6 @@ export default function App() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 py-7">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Curated Projects", value: ALL_PROJECTS.length, sub: "Manual BD targets", icon: "📊" },
-            { label: "Live on DexScreener", value: dexData.trending.length + dexData.new.length > 0 ? dexData.trending.length + dexData.new.length : "—", sub: "New & trending tokens", icon: "📡" },
-            { label: "Auto Scout", value: doneCount > 0 ? emailCount + "/" + doneCount : "Ready", sub: "Emails found/scanned", icon: "🤖" },
-            { label: "BD Pipeline", value: leads.length, sub: "Saved leads", icon: "📋" },
-          ].map(s => (
-            <div key={s.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="flex items-center justify-between mb-2"><span className="text-gray-600 text-xs">{s.label}</span><span className="text-lg">{s.icon}</span></div>
-              <p className="text-white font-bold text-2xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{s.value}</p>
-              <p className="text-gray-700 text-xs mt-1">{s.sub}</p>
-            </div>
-          ))}
-        </div>
 
         {page === "scout" && <ScoutAIPage onAddLead={p => { addLead(p); setPage("pipeline"); }} onAddToHistory={addToHistory} contactHistory={contactHistory} dbLoading={dbLoading} />}
 
