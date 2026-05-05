@@ -396,13 +396,28 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
         : "Find BD contact email for crypto project @" + h + ". IMPORTANT: Search these in order: 1) '" + h + " crypto official website' to find their domain, 2) visit their website contact/about page for email, 3) '" + h + " email contact BD' 4) BSCScan or Etherscan token page. Look for any email like contact@, hello@, bd@, info@, partnerships@. Return ONLY JSON: {\"projectName\":\"name\",\"symbol\":\"SYM\",\"emoji\":\"emoji\",\"tagline\":\"one line\",\"description\":\"2 sentences\",\"category\":\"DeFi|Layer 1|AI|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain\",\"website\":\"domain\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific path\",\"outreachStrategy\":\"2 sentences\",\"bdScore\":70,\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Name\",\"role\":\"role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram\",\"notes\":\"tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
-      let res = await SAFE_API(msgs);
-      // Retry once if rate limited
-      if (res._err || (res.error && res.error.type === "rate_limit_error")) {
-        addLog("⏳ Rate limited — waiting 15 seconds...");
-        await new Promise(resolve => setTimeout(resolve, 15000));
-        res = await SAFE_API(msgs);
+      // Check cache first - if already in history, use that
+      const cached = contactHistory.find(h => {
+        const hName = (h.name || "").toLowerCase();
+        const hTwitter = (h.twitter || "").toLowerCase().replace("@","");
+        return hName === handle.toLowerCase() || hTwitter === handle.toLowerCase().replace("@","");
+      });
+      if (cached && cached.fullResult) {
+        addLog("⚡ Found in history cache — no API call needed!");
+        setResult(cached.fullResult);
+        setPhase("done");
+        return;
       }
+
+      let res = await SAFE_API(msgs);
+
+      // If rate limited, fail immediately — no retries
+      if (res.error && res.error.type === "rate_limit_error") {
+        addLog("❌ Rate limit hit — please wait 1 minute and try again");
+        setPhase("error");
+        return;
+      }
+
       let ei = 0;
       while (res.stop_reason === "tool_use" && ei < 4 && !res._err) {
         ei++;
@@ -415,12 +430,12 @@ function ScoutAIPage({ onAddLead, onAddToHistory }) {
           { role: "assistant", content: res.content },
           { role: "user", content: toolResults }
         ];
-        await new Promise(resolve => setTimeout(resolve, 3000));
         res = await SAFE_API(msgs);
-        if (res._err || (res.error && res.error.type === "rate_limit_error")) {
-          addLog("⏳ Rate limited — waiting 15 seconds...");
-          await new Promise(resolve => setTimeout(resolve, 15000));
-          res = await SAFE_API(msgs);
+        // Stop immediately if rate limited mid-search
+        if (res.error && res.error.type === "rate_limit_error") {
+          addLog("❌ Rate limit hit — please wait 1 minute and try again");
+          setPhase("error");
+          return;
         }
       }
       addLog(`✅ Done — ${ei} searches run`);
