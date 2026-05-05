@@ -682,6 +682,84 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       if (!parsed) {
         parsed = { projectName: h, symbol: h.toUpperCase().slice(0,6), emoji: "🛸", tagline: "Crypto project @" + h, description: "Visit their website for more details.", category: "Crypto", stage: "Unknown", chain: "Unknown", website: "", twitter: "@" + h, telegram: "Unknown", bdEmail: "Unknown", bdTelegram: "Unknown", bestContactPath: "Twitter DM: @" + h, outreachStrategy: "", bdScore: 50, dataQuality: "Low", contacts: [], tags: [] };
       }
+
+      // FREE EMAIL ENRICHMENT: scrape contact pages directly to verify/find real emails.
+      // Runs ALWAYS (not just when AI says Unknown) because Claude's email guesses are often
+      // pattern-matched hallucinations (e.g. guessing "bd@domain" when the real email is on a different domain).
+      // Verified scraped emails override Claude's guesses. Uses CORS proxies (free, no API cost).
+      if (parsed.website && parsed.website !== "Unknown" && parsed.website !== "") {
+        addLog("🔍 Scraping contact pages to verify email…");
+        console.log("[Scout enrichment] Starting scrape for website:", parsed.website);
+        try {
+          // Normalize the website URL: ensure it starts with https:// and has no trailing slash
+          var rootUrl = parsed.website.trim();
+          if (!/^https?:\/\//.test(rootUrl)) rootUrl = "https://" + rootUrl;
+          rootUrl = rootUrl.replace(/\/+$/, "");
+          console.log("[Scout enrichment] Normalized root URL:", rootUrl);
+
+          // Pages most likely to contain emails, in priority order
+          var candidatePaths = ["/contact", "/about", "/team", "/contact-us", "/about-us", ""];
+
+          // Filter out junk emails: tracking pixels, third-party services, generic noreply
+          var isJunkEmail = function(e) {
+            var lower = e.toLowerCase();
+            if (/^(noreply|no-reply|do-not-reply|donotreply)@/.test(lower)) return true;
+            if (/@(sentry|stripe|google|wix|squarespace|godaddy|namecheap|cloudflare|amazonaws|sendgrid|mailgun|intercom|zendesk|hubspot)\./.test(lower)) return true;
+            if (/(example|test|domain|email|yourdomain|sample)\.(com|org|net)/.test(lower)) return true;
+            if (/\.(png|jpg|gif|svg|css|js|woff|ttf|webp)$/i.test(lower)) return true;
+            return false;
+          };
+
+          var foundEmail = null;
+          var foundOnPath = null;
+          for (var pi = 0; pi < candidatePaths.length && !foundEmail; pi++) {
+            var pageUrl = rootUrl + candidatePaths[pi];
+            console.log("[Scout enrichment] Trying:", pageUrl);
+            try {
+              var pageText = await fetchPage(pageUrl);
+              console.log("[Scout enrichment] Got " + (pageText ? pageText.length : 0) + " chars from " + pageUrl);
+              if (pageText) {
+                var emails = extractEmails(pageText).filter(function(e){ return !isJunkEmail(e); });
+                console.log("[Scout enrichment] Found emails on page:", emails);
+                if (emails.length > 0) {
+                  // Prefer BD/contact-style emails over generic ones
+                  emails.sort(function(a, b) {
+                    var aPriority = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(a) ? 0 : 1;
+                    var bPriority = /^(bd|partnerships|listings?|business|contact|info|hello|team)@/.test(b) ? 0 : 1;
+                    return aPriority - bPriority;
+                  });
+                  foundEmail = emails[0];
+                  foundOnPath = candidatePaths[pi] || "/";
+                  addLog("✅ Verified email on " + foundOnPath + ": " + foundEmail);
+                }
+              }
+            } catch (pageErr) {
+              console.log("[Scout enrichment] Error fetching " + pageUrl + ":", pageErr && pageErr.message);
+            }
+          }
+
+          if (foundEmail) {
+            // If AI's email differs from the scraped one, prefer the verified scraped email
+            var aiEmail = parsed.bdEmail;
+            if (aiEmail && aiEmail !== "Unknown" && aiEmail.toLowerCase() !== foundEmail.toLowerCase()) {
+              addLog("ℹ️ AI guessed " + aiEmail + " — overriding with verified " + foundEmail);
+              console.log("[Scout enrichment] Overriding AI email " + aiEmail + " with scraped " + foundEmail);
+            }
+            parsed.bdEmail = foundEmail;
+            parsed.dataQuality = "High"; // verified by direct scrape
+            if (!parsed.bestContactPath || /unknown/i.test(parsed.bestContactPath)) {
+              parsed.bestContactPath = "Email: " + foundEmail;
+            }
+          } else {
+            addLog("ℹ️ No email found on contact pages — keeping AI result");
+            console.log("[Scout enrichment] No email found in any candidate page");
+          }
+        } catch (enrichErr) {
+          console.log("[Scout enrichment] Top-level error:", enrichErr && enrichErr.message);
+          addLog("ℹ️ Page scrape failed (non-critical)");
+        }
+      }
+
       const emails = (parsed.bdEmail && parsed.bdEmail !== "Unknown") ? [parsed.bdEmail] : [];
 
       setResult(parsed);
