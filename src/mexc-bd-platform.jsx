@@ -230,7 +230,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
           {phase === "idle" && (
             <div className="text-center py-10">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-5" style={{ background: "linear-gradient(135deg,rgba(255,106,0,0.12),rgba(238,9,121,0.08))", border: "1px solid rgba(255,106,0,0.2)" }}>🔍</div>
-              <p className="text-white font-semibold text-lg mb-2">Find BD Contacts</p>
+              <p className="text-white font-semibold text-lg mb-2">Find Contacts</p>
               <p className="text-gray-500 text-sm mb-6">AI will search for verified contacts for <span className="text-white">{project.name}</span>.</p>
               <button onClick={run} className="px-7 py-3 rounded-xl font-semibold text-sm hover:scale-105 transition-all" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>🤖 Find Contacts</button>
             </div>
@@ -320,7 +320,7 @@ function ProjectModal({ project, onClose, onFindContacts }) {
             </div>
           )}
           <button onClick={() => { onClose(); onFindContacts(project); }} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-all" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-            🤖 Find BD Contacts with AI
+            🤖 Find Contacts with AI
           </button>
         </div>
       </div>
@@ -333,7 +333,7 @@ const SCOUT_STEPS = [
   { icon: "🏦", label: "Block explorers" },
   { icon: "📧", label: "Extract emails" },
   { icon: "🤖", label: "AI enrichment" },
-  { icon: "💡", label: "BD profile" },
+  { icon: "💡", label: "profile" },
 ];
 
 function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
@@ -537,8 +537,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 2s infinite" }} />
           <div className="ticker" style={{ color: "#fbbf24", fontSize: 10 }}>LIVE</div>
         </div>
-        <h1 className="sans" style={{ fontSize: 28, fontWeight: 700, color: "#f0f6fc", margin: "0 0 6px", letterSpacing: "-0.02em" }}>BD Intelligence</h1>
-        <p className="sans" style={{ color: "#4a5568", fontSize: 14, margin: 0 }}>Enter a Twitter handle or website — AI searches the web and builds a complete BD contact profile.</p>
+        <h1 className="sans" style={{ fontSize: 28, fontWeight: 700, color: "#f0f6fc", margin: "0 0 6px", letterSpacing: "-0.02em" }}>Analysis</h1>
+        <p className="sans" style={{ color: "#4a5568", fontSize: 14, margin: 0 }}>Enter a Twitter handle or website — AI searches the web and builds a complete contact profile.</p>
       </div>
 
       {/* Search input */}
@@ -617,23 +617,57 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       )}
 
       {phase === "loading" && (
-        <div className="rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,106,0,0.15)" }}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: (i * 0.15) + "s" }} />)}</div>
-            <span className="text-orange-400 font-medium text-sm">Scouting <span className="text-white">@{h}</span></span>
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa" }}>{(stream.match(/🔍/g) || []).length} searches</span>
+        <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, padding: 24 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 0.8s infinite", flexShrink: 0 }} />
+            <span className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>SCANNING @{h.toUpperCase()}</span>
+            <span className="ticker" style={{ marginLeft: "auto", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", fontSize: 10, padding: "2px 10px", borderRadius: 2 }}>
+              {(stream.match(/🔎/g) || []).length} SEARCHES
+            </span>
           </div>
-          <div className="rounded-xl p-4 mb-4 font-mono text-xs min-h-28 max-h-48 overflow-y-auto" style={{ background: "#0a0d14", border: "1px solid rgba(255,106,0,0.12)" }}>
-            {stream.split("\n").filter(Boolean).map((line, i) => (
-              <div key={i} className="leading-6" style={{ color: line.startsWith("🔍") ? "#60a5fa" : line.startsWith("   ✅") ? "#34d399" : line.startsWith("✅") ? "#34d399" : line.startsWith("📧") ? "#f59e0b" : line.startsWith("🚀") ? "#ff6a00" : "#4b5563" }}>{line}</div>
-            ))}
-            <span className="inline-block w-1.5 h-3.5 bg-orange-400 animate-pulse align-middle" />
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {SCOUT_STEPS.map((s, i) => {
-              const n = (stream.match(/🔍/g) || []).length; const done = n > i * 1.4;
-              return <div key={i} className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl" style={{ background: done ? "rgba(255,106,0,0.1)" : "rgba(255,255,255,0.02)", border: "1px solid " + (done ? "rgba(255,106,0,0.28)" : "rgba(255,255,255,0.06)") }}><span className="text-lg">{done ? "✅" : s.icon}</span><p className="text-xs text-center" style={{ color: done ? "#ff6a00" : "#374151" }}>{s.label}</p></div>;
+
+          {/* Step indicators */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, position: "relative" }}>
+            <div style={{ position: "absolute", top: 10, left: "10%", right: "10%", height: 1, background: "rgba(255,255,255,0.04)" }} />
+            {SCOUT_STEPS.map(function(s, i) {
+              var searchCount = (stream.match(/🔎/g) || []).length;
+              var done = searchCount > i * 1.2;
+              var active = !done && searchCount >= i * 1.2;
+              return (
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, zIndex: 1, flex: 1 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + (done ? "#fbbf24" : active ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.08)"), background: done ? "#fbbf24" : active ? "rgba(251,191,36,0.08)" : "#080a0f", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.4s", boxShadow: active ? "0 0 10px rgba(251,191,36,0.3)" : "none" }}>
+                    {done
+                      ? <span style={{ fontSize: 10, color: "#080a0f", fontWeight: 700 }}>✓</span>
+                      : active
+                      ? <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 0.6s infinite" }} />
+                      : null}
+                  </div>
+                  <span className="ticker" style={{ fontSize: 8, letterSpacing: "0.04em", color: done ? "#fbbf24" : active ? "rgba(251,191,36,0.5)" : "#1e2940", textAlign: "center", maxWidth: 70, lineHeight: 1.4 }}>{s.label.toUpperCase()}</span>
+                </div>
+              );
             })}
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height: 2, background: "rgba(255,255,255,0.04)", borderRadius: 1, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ height: "100%", background: "linear-gradient(90deg,#fbbf24,rgba(251,191,36,0.5))", width: Math.min(((stream.match(/🔎/g) || []).length / 6) * 100, 95) + "%", transition: "width 0.8s ease", boxShadow: "0 0 8px rgba(251,191,36,0.5)" }} />
+          </div>
+
+          {/* Terminal */}
+          <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              {["#ef4444","#fbbf24","#10b981"].map(function(c,i) { return <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: c, opacity: 0.5 }} />; })}
+              <span className="ticker" style={{ marginLeft: 8, color: "#1e2940", fontSize: 9, letterSpacing: "0.08em" }}>SCOUT TERMINAL</span>
+            </div>
+            {stream.split("\n").filter(Boolean).map(function(line, i) {
+              return (
+                <div key={i} className="ticker" style={{ fontSize: 11, lineHeight: 1.7, color: line.startsWith("🔎") ? "#60a5fa" : line.startsWith("🚀") || line.startsWith("🌐") ? "#fbbf24" : line.startsWith("✅") ? "#10b981" : line.startsWith("📄") ? "#a5b4fc" : "#374151" }}>
+                  {line}
+                </div>
+              );
+            })}
+            <span style={{ display: "inline-block", width: 6, height: 13, background: "#fbbf24", animation: "blink 1s infinite", verticalAlign: "middle", opacity: 0.8 }} />
           </div>
         </div>
       )}
@@ -778,7 +812,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
               onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, trendScore: result.trendScore || 70, twitter: result.twitter, website: result.website, telegram: result.telegram, tags: result.tags || [] });
             }} className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02]"
               style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white" }}>
-              ➕ Add to BD Pipeline
+              ➕ Add to Pipeline
             </button>
             <button onClick={() => {
               const confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
@@ -1067,6 +1101,7 @@ export default function App() {
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
         @keyframes scan-line { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+        @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         .fade-in { animation: fadeIn 0.3s ease forwards; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
         .sans { font-family: 'IBM Plex Sans', sans-serif; }
@@ -1097,7 +1132,7 @@ export default function App() {
               <div className="sans" style={{ fontSize: 15, fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em", lineHeight: 1 }}>
                 Scout<span style={{ color: "#fbbf24" }}>.</span>
               </div>
-              <div className="ticker" style={{ color: "#4a5568", fontSize: 9, marginTop: 1 }}>BD INTELLIGENCE</div>
+              <div className="ticker" style={{ color: "#4a5568", fontSize: 9, marginTop: 1 }}>ANALYSIS</div>
             </div>
           </div>
 
@@ -1404,7 +1439,7 @@ export default function App() {
                 );
               })}
             </div>
-            <p className="text-gray-800 text-xs text-center mt-4">Showing {display.length} of {ALL_PROJECTS.length} curated BD targets</p>
+            <p className="text-gray-800 text-xs text-center mt-4">Showing {display.length} of {ALL_PROJECTS.length} curated targets</p>
           </>
         )}
 
