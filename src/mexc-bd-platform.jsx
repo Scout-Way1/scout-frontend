@@ -1248,8 +1248,8 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 52 }}>
           {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Logo mark */}
-            <div style={{ width: 32, height: 32, position: "relative", flexShrink: 0 }}>
+            {/* Logo mark — clickable, goes to Scout AI */}
+            <button onClick={function() { setPage("scout"); }} style={{ width: 32, height: 32, flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <rect width="32" height="32" rx="6" fill="#0d1117" stroke="rgba(251,191,36,0.3)" strokeWidth="1"/>
                 <circle cx="16" cy="14" r="5" stroke="#fbbf24" strokeWidth="1.5" fill="none"/>
@@ -1257,13 +1257,13 @@ export default function App() {
                 <line x1="20" y1="19" x2="25" y2="24" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
                 <circle cx="16" cy="14" r="8" stroke="rgba(251,191,36,0.15)" strokeWidth="1" fill="none" strokeDasharray="2 3"/>
               </svg>
-            </div>
-            <div>
+            </button>
+            <button onClick={function() { setPage("scout"); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
               <div className="sans" style={{ fontSize: 15, fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em", lineHeight: 1 }}>
                 Scout<span style={{ color: "#fbbf24" }}>.</span>
               </div>
               <div className="ticker" style={{ color: "#4a5568", fontSize: 9, marginTop: 1 }}>ANALYSIS</div>
-            </div>
+            </button>
           </div>
 
           {/* Nav tabs */}
