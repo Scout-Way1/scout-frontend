@@ -59,6 +59,18 @@ const CAT_KEYS = {
 
 const STAGE_OPTIONS = ["All","Listed","Post-Launch","Pre-Launch","Presale","ICO"];
 
+// Best email finder: falls back from project-level bdEmail to first contact's email
+// Used by History table and Recent Searches table where AI may return contacts[] but no top-level email.
+function bestEmail(item) {
+  if (item && item.bdEmail && item.bdEmail !== "Unknown") return item.bdEmail;
+  var contacts = (item && item.fullResult && item.fullResult.contacts) || [];
+  for (var i = 0; i < contacts.length; i++) {
+    var e = contacts[i] && contacts[i].email;
+    if (e && e !== "Unknown" && /\S+@\S+\.\S+/.test(e)) return e;
+  }
+  return null;
+}
+
 function applyView(arr, v) {
   if (v==="top")      return [...arr].sort((a,b)=>b.mcapRaw-a.mcapRaw);
   if (v==="trending") return [...arr].sort((a,b)=>b.trendScore-a.trendScore);
@@ -644,7 +656,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
                   <span>PROJECT</span><span>SYMBOL</span><span>EMAIL</span><span>INTEREST</span><span style={{ textAlign: "right" }}>SCORE</span>
                 </div>
                 {contactHistory.slice(0, 5).map(function(r, i) {
-                  var hasEmail = r.bdEmail && r.bdEmail !== "Unknown";
+                  var displayEmail = bestEmail(r);
+                  var hasEmail = !!displayEmail;
                   var score = r.fullResult && r.fullResult.bdScore;
                   var interest = r.fullResult && r.fullResult.listingInterest;
                   return (
@@ -655,7 +668,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
                         <span className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
                       </div>
                       <span className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>{r.symbol||"—"}</span>
-                      <span className="ticker" style={{ color: hasEmail?"#10b981":"#1e2940", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{hasEmail?r.bdEmail:"NOT FOUND"}</span>
+                      <span className="ticker" style={{ color: hasEmail?"#10b981":"#1e2940", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{hasEmail?displayEmail:"NOT FOUND"}</span>
                       <span className="ticker" style={{ fontSize: 10, color: interest==="High"?"#10b981":interest==="Medium"?"#fbbf24":"#6b7280" }}>{interest?interest.toUpperCase():"—"}</span>
                       <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score>=80?"#10b981":score>=60?"#fbbf24":"#ef4444", textAlign: "right" }}>{score||"—"}</span>
                     </div>
@@ -1616,7 +1629,7 @@ export default function App() {
                 <h2 className="sans" style={{ fontSize: 24, fontWeight: 700, color: "#f0f6fc", margin: 0, letterSpacing: "-0.02em" }}>Contact Intelligence</h2>
               </div>
               <div style={{ display: "flex", gap: 24 }}>
-                {[["TOTAL", contactHistory.length, "#c9d1d9"], ["EMAILS FOUND", contactHistory.filter(function(h){return h.bdEmail && h.bdEmail!=="Unknown";}).length, "#10b981"], ["NO EMAIL", contactHistory.filter(function(h){return !h.bdEmail||h.bdEmail==="Unknown";}).length, "#ef4444"]].map(function(row) {
+                {[["TOTAL", contactHistory.length, "#c9d1d9"], ["EMAILS FOUND", contactHistory.filter(function(h){return !!bestEmail(h);}).length, "#10b981"], ["NO EMAIL", contactHistory.filter(function(h){return !bestEmail(h);}).length, "#ef4444"]].map(function(row) {
                   return (
                     <div key={row[0]} style={{ textAlign: "right" }}>
                       <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 2 }}>{row[0]}</div>
@@ -1667,11 +1680,13 @@ export default function App() {
                     <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>BD EMAIL</span><span>CONFIDENCE</span><span>SCORE</span><span style={{ textAlign: "right" }}>ACTIONS</span>
                   </div>
                   {contactHistory.filter(function(h){
-                    var mf = histFilter==="all" || (histFilter==="email"&&h.bdEmail&&h.bdEmail!=="Unknown") || (histFilter==="noemail"&&(!h.bdEmail||h.bdEmail==="Unknown"));
+                    var foundEmail = bestEmail(h);
+                    var mf = histFilter==="all" || (histFilter==="email"&&foundEmail) || (histFilter==="noemail"&&!foundEmail);
                     var ms = !histSearch || h.name.toLowerCase().includes(histSearch.toLowerCase()) || (h.symbol||"").toLowerCase().includes(histSearch.toLowerCase());
                     return mf && ms;
                   }).map(function(item, i) {
-                    var hasEmail = item.bdEmail && item.bdEmail !== "Unknown";
+                    var displayEmail = bestEmail(item);
+                    var hasEmail = !!displayEmail;
                     var score = item.fullResult && item.fullResult.bdScore;
                     var confColor = { High: "#10b981", Medium: "#fbbf24", Low: "#ef4444" }[item.confidence] || "#6b7280";
                     var scoreCol = score >= 70 ? "#10b981" : score >= 40 ? "#fbbf24" : "#ef4444";
@@ -1690,8 +1705,8 @@ export default function App() {
                         <div style={{ paddingRight: 8 }} onClick={function(e){e.stopPropagation();}}>
                           {hasEmail
                             ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{item.bdEmail}</span>
-                                <button onClick={function(){navigator.clipboard.writeText(item.bdEmail);}} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8, flexShrink: 0 }}>⎘</button>
+                                <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{displayEmail}</span>
+                                <button onClick={function(){navigator.clipboard.writeText(displayEmail);}} className="ticker" style={{ padding: "1px 6px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.15)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 8, flexShrink: 0 }}>⎘</button>
                               </div>
                             : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
                         </div>
