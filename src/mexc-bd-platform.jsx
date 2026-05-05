@@ -912,7 +912,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 
           {/* ACTION BUTTONS */}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={function() { onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, trendScore: result.trendScore || 70, twitter: result.twitter, website: result.website, telegram: result.telegram, tags: result.tags || [] }); }} className="ticker"
+            <button onClick={function() { onAddLead({ id: Date.now(), name: result.projectName, symbol: result.symbol, logo: result.emoji || "🔍", category: result.category, stage: result.stage || "Listed", chain: result.chain, description: result.description, tge: result.tge, twitter: result.twitter, website: result.website, telegram: result.telegram, bdEmail: result.bdEmail, bdTelegram: result.bdTelegram, listingInterest: result.listingInterest, bdScore: result.bdScore, tags: result.tags || [] }); }} className="ticker"
               style={{ flex: 1, padding: "11px 0", borderRadius: 4, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.08)", color: "#fbbf24", cursor: "pointer", fontSize: 11, letterSpacing: "0.08em" }}>
               + ADD TO PIPELINE
             </button>
@@ -1664,7 +1664,7 @@ export default function App() {
                         <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
                         <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
                           <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
-                          <button onClick={function(){addLead({ id: "h-" + i, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: "DeFi", stage: "Listed", description: item.description||"", tags: [] }); setPage("pipeline");}} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
+                          <button onClick={function(){addLead({ id: "h-" + i, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: item.source||"DeFi", stage: "Listed", description: item.description||"", bdEmail: item.bdEmail||"", bdTelegram: item.bdTelegram||"", listingInterest: item.fullResult&&item.fullResult.listingInterest, bdScore: item.fullResult&&item.fullResult.bdScore, tags: [] }); setPage("pipeline");}} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
                           <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
                         </div>
                       </div>
@@ -1757,7 +1757,10 @@ export default function App() {
                       var sBg = { "New":"rgba(96,165,250,0.08)","Contacted":"rgba(251,191,36,0.08)","In Discussion":"rgba(168,85,247,0.08)","Listing Agreed":"rgba(16,185,129,0.08)","On Hold":"rgba(107,114,128,0.08)","Rejected":"rgba(239,68,68,0.08)" };
                       var sBorder = { "New":"rgba(96,165,250,0.2)","Contacted":"rgba(251,191,36,0.2)","In Discussion":"rgba(168,85,247,0.2)","Listing Agreed":"rgba(16,185,129,0.2)","On Hold":"rgba(107,114,128,0.2)","Rejected":"rgba(239,68,68,0.2)" };
                       return (
-                        <div key={p.id} style={{ display: "grid", gridTemplateColumns: "120px 180px 140px 150px 1fr 130px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0?"transparent":"rgba(255,255,255,0.01)" }}>
+                        <div key={p.id} style={{ display: "grid", gridTemplateColumns: "120px 180px 140px 150px 1fr 130px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0?"transparent":"rgba(255,255,255,0.01)", cursor: "pointer", transition: "background 0.15s" }}
+                          onClick={function(){setPipeSelected(p);setPipeShowSummary(false);}}
+                          onMouseEnter={function(e){e.currentTarget.style.background="rgba(251,191,36,0.025)";}}
+                          onMouseLeave={function(e){e.currentTarget.style.background=i%2===0?"transparent":"rgba(255,255,255,0.01)";}}>
                           <div>
                             <div className="ticker" style={{ fontSize: 10, color: "#c9d1d9", whiteSpace: "nowrap" }}>{p.addedAt ? new Date(p.addedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "—"}</div>
                             <div className="ticker" style={{ fontSize: 9, color: p.remarks&&p.remarks.length>0?"#fbbf24":"#374151", marginTop: 2, whiteSpace: "nowrap" }}>
@@ -1776,7 +1779,7 @@ export default function App() {
                               ? <button onClick={function(){setExternalLinkPipe({url:"https://twitter.com/"+p.twitter.replace("@",""),label:"Twitter: "+p.twitter});}} className="ticker" style={{ fontSize: 11, color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer", whiteSpace: "nowrap" }}>{p.twitter} ↗</button>
                               : <span className="ticker" style={{ color: "#374151", fontSize: 11 }}>—</span>}
                           </div>
-                          <div>
+                          <div onClick={function(e){e.stopPropagation();}}>
                             <select value={p.status||"New"} onChange={function(e){setLeads(function(prev){return prev.map(function(l){return l.id===p.id?Object.assign({},l,{status:e.target.value}):l;});});}} className="ticker"
                               style={{ padding: "3px 8px", background: sBg[p.status||"New"], border: "1px solid " + sBorder[p.status||"New"], color: colors[p.status||"New"], borderRadius: 3, cursor: "pointer", fontSize: 9, outline: "none", width: "100%", appearance: "none" }}>
                               {["New","Contacted","In Discussion","Listing Agreed","On Hold","Rejected"].map(function(s){return <option key={s} value={s} style={{background:"#0d1117",color:"#c9d1d9"}}>{s}</option>;})}
@@ -1787,7 +1790,7 @@ export default function App() {
                               ? <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{p.bdEmail}</span>
                               : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
                           </div>
-                          <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                          <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
                             <button onClick={function(){setPipeSelected(p);setPipeShowSummary(false);}} className="ticker"
                               style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
                               VIEW{p.remarks&&p.remarks.length>0&&<span style={{background:"#fbbf24",color:"#080a0f",borderRadius:10,fontSize:8,padding:"0 4px",fontWeight:700}}>{p.remarks.length}</span>}
