@@ -71,6 +71,63 @@ function bestEmail(item) {
   return null;
 }
 
+// Cleans a twitter handle string (strips @, URL prefix, query params, etc.) for use in unavatar.io
+function cleanTwitterHandle(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  return raw.trim()
+    .replace(/^@/, "")
+    .replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, "")
+    .replace(/\/.*$/, "")
+    .replace(/\?.*$/, "")
+    .toLowerCase();
+}
+
+// Logo: shows Twitter avatar from unavatar.io with emoji fallback if image fails or no handle.
+// Pass: item (any object with .twitter and .logo), size in px, optional borderRadius.
+function Logo({ item, size = 28, radius = 4, fontSize }) {
+  var [failed, setFailed] = useState(false);
+  var handle = cleanTwitterHandle(item && item.twitter);
+  var fallback = (item && item.logo) || "🪙";
+  // If logo is already a URL (e.g. from DexScreener static feed), use it directly.
+  var isExistingUrl = typeof fallback === "string" && /^https?:\/\//i.test(fallback);
+  var emojiFontSize = fontSize || Math.round(size * 0.55);
+
+  var common = {
+    width: size,
+    height: size,
+    borderRadius: radius,
+    background: "rgba(251,191,36,0.07)",
+    border: "1px solid rgba(251,191,36,0.12)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: emojiFontSize,
+    flexShrink: 0,
+    overflow: "hidden",
+  };
+
+  if (isExistingUrl && !failed) {
+    return (
+      <div style={common}>
+        <img src={fallback} alt="" onError={function(){setFailed(true);}}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+    );
+  }
+
+  if (handle && !failed) {
+    return (
+      <div style={common}>
+        <img src={"https://unavatar.io/twitter/" + handle + "?fallback=false"} alt=""
+          onError={function(){setFailed(true);}}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+    );
+  }
+
+  return <div style={common}>{fallback}</div>;
+}
+
 function applyView(arr, v) {
   if (v==="top")      return [...arr].sort((a,b)=>b.mcapRaw-a.mcapRaw);
   if (v==="trending") return [...arr].sort((a,b)=>b.trendScore-a.trendScore);
@@ -239,7 +296,7 @@ Return ONLY raw JSON: {"summary":"string","contacts":[{"name":"string","role":"s
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)" }}>
       <div className="w-full max-w-2xl rounded-2xl flex flex-col overflow-hidden" style={{ background: "linear-gradient(160deg,#0c1018,#111827)", border: "1px solid rgba(255,106,0,0.2)", maxHeight: "90vh" }}>
         <div className="flex items-center gap-3 p-5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl" style={{ background: "rgba(255,106,0,0.1)" }}>{project.logo}</div>
+          <Logo item={project} size={40} radius={12} fontSize={24} />
           <div className="flex-1"><p className="text-white font-bold">{project.name} <span className="text-gray-500 font-normal text-sm">{project.symbol}</span></p><p className="text-gray-600 text-xs">BD Contact Intelligence</p></div>
           <button onClick={onClose} className="text-gray-600 hover:text-white text-xl leading-none">✕</button>
         </div>
@@ -315,7 +372,7 @@ function ProjectModal({ project, onClose, onFindContacts }) {
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}>
       <div className="w-full max-w-xl rounded-2xl flex flex-col overflow-hidden" style={{ background: "linear-gradient(160deg,#0c1018,#111827)", border: "1px solid rgba(255,255,255,0.1)", maxHeight: "90vh" }}>
         <div className="flex items-center gap-3 p-5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-3xl" style={{ background: "rgba(255,255,255,0.05)" }}>{project.logo}</div>
+          <Logo item={project} size={48} radius={12} fontSize={30} />
           <div className="flex-1">
             <p className="text-white font-bold text-xl">{project.name} <span className="text-gray-500 font-normal text-sm">{project.symbol}</span></p>
             <div className="flex items-center gap-2 mt-1"><StagePill stage={project.stage} /><span className="text-gray-600 text-xs">{project.category}</span></div>
@@ -664,7 +721,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
                     <div key={i} className="row-hover" onClick={function() { if (r.fullResult) { setResult(r.fullResult); setPhase("done"); setResultTab("overview"); } }}
                       style={{ display: "grid", gridTemplateColumns: "1fr 80px 1fr 110px 60px", padding: "11px 16px", borderBottom: i < Math.min(contactHistory.length, 5)-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center", background: i%2===0?"transparent":"rgba(255,255,255,0.01)", cursor: "pointer", transition: "background 0.15s" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: 4, background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{r.logo||"🪙"}</div>
+                        <Logo item={r} size={26} radius={4} fontSize={13} />
                         <span className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
                       </div>
                       <span className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>{r.symbol||"—"}</span>
@@ -768,7 +825,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 6, padding: 24, marginBottom: 16, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(251,191,36,0.04)", pointerEvents: "none" }} />
             <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 8, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>{result.emoji || "🔍"}</div>
+              <Logo item={{ twitter: result.twitter, logo: result.emoji || "🔍" }} size={56} radius={8} fontSize={28} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                   <h2 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 22, margin: 0, letterSpacing: "-0.02em" }}>{result.projectName}</h2>
@@ -1593,7 +1650,7 @@ export default function App() {
                       {viewTab === "new"      && <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: "rgba(16,185,129,0.12)", color: "#10b981" }}>{p.addedDaysAgo <= 1 ? "Today" : p.addedDaysAgo + "d"}</span>}
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>{p.logo}</div>
+                      <Logo item={p} size={32} radius={8} fontSize={16} />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <p className="text-white font-semibold text-sm">{p.name}</p>
@@ -1694,7 +1751,7 @@ export default function App() {
                       <div key={i} className="row-hover" onClick={function(){setHistoryModal(item);}}
                         style={{ display: "grid", gridTemplateColumns: "200px 80px 100px 1fr 110px 65px 210px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)", cursor: "pointer" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 4, background: hasEmail ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.05)", border: "1px solid " + (hasEmail ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{item.logo||"🪙"}</div>
+                          <Logo item={item} size={30} radius={4} fontSize={15} />
                           <div style={{ minWidth: 0 }}>
                             <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</div>
                             <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{item.ts ? new Date(item.ts).toLocaleDateString() : ""}</div>
@@ -1818,7 +1875,7 @@ export default function App() {
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 4, background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{p.logo||"🪙"}</div>
+                            <Logo item={p} size={28} radius={4} fontSize={14} />
                             <div style={{ minWidth: 0 }}>
                               <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                               <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{p.category||""}</div>
@@ -1861,7 +1918,7 @@ export default function App() {
                   <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(251,191,36,0.02)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 6, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{pipeSelected.logo||"🪙"}</div>
+                        <Logo item={pipeSelected} size={44} radius={6} fontSize={22} />
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                             <h3 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 18, margin: 0 }}>{pipeSelected.name}</h3>
@@ -2021,7 +2078,7 @@ function HistoryDetailModal({ item, onClose }) {
         <div className="p-6 border-b" style={{ borderColor: "rgba(255,255,255,0.08)", background: "linear-gradient(135deg,rgba(255,106,0,0.08),rgba(238,9,121,0.05))" }}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }}>{item.logo || "🛸"}</div>
+              <Logo item={item} size={56} radius={16} fontSize={28} />
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-white font-bold text-xl">{item.name}</h2>
