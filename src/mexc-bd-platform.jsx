@@ -1106,8 +1106,9 @@ export default function App() {
 
   const addLead = p => {
     if (!leads.find(l => l.id === p.id)) {
-      setLeads(prev => [...prev, p]);
-      sbAddPipeline(p);
+      const newLead = Object.assign({}, p, { remarks: [], addedAt: new Date(), status: "New" });
+      setLeads(prev => [...prev, newLead]);
+      sbAddPipeline(newLead);
     }
   };
 
@@ -1147,6 +1148,13 @@ export default function App() {
   const [historyModal, setHistoryModal] = useState(null);
   const [histFilter, setHistFilter] = useState("all");
   const [histSearch, setHistSearch] = useState("");
+  const [pipeSelected, setPipeSelected] = useState(null);
+  const [pipeFilter, setPipeFilter] = useState("all");
+  const [pipeSearch, setPipeSearch] = useState("");
+  const [pipeSortOrder, setPipeSortOrder] = useState("newest");
+  const [pipeNoteText, setPipeNoteText] = useState("");
+  const [pipeShowSummary, setPipeShowSummary] = useState(false);
+  const [externalLinkPipe, setExternalLinkPipe] = useState(null);
 
 
 
@@ -1629,49 +1637,260 @@ export default function App() {
 
         {page === "pipeline" && (
           <div className="fade-in">
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)", flexWrap: "wrap", gap: 16 }}>
               <div>
-                <div className="ticker" style={{ fontSize: 10, color: "#4a5568", letterSpacing: "0.1em", marginBottom: 4 }}>BD PIPELINE</div>
+                <div className="ticker" style={{ fontSize: 10, color: "#4a5568", letterSpacing: "0.1em", marginBottom: 4 }}>MY PIPELINE</div>
                 <h2 className="sans" style={{ fontSize: 24, fontWeight: 700, color: "#f0f6fc", margin: 0, letterSpacing: "-0.02em" }}>Active Leads</h2>
               </div>
-              <div className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>{leads.length} RECORDS</div>
+              <div style={{ display: "flex", gap: 20 }}>
+                {[["TOTAL", leads.length, "#c9d1d9"], ["HIGH INTEREST", leads.filter(function(l){return l.listingInterest==="High";}).length, "#10b981"], ["WITH EMAIL", leads.filter(function(l){return l.bdEmail&&l.bdEmail!=="Unknown";}).length, "#fbbf24"]].map(function(row) {
+                  return (
+                    <div key={row[0]} style={{ textAlign: "right" }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 2 }}>{row[0]}</div>
+                      <div className="sans" style={{ fontSize: 22, fontWeight: 700, color: row[2], lineHeight: 1 }}>{row[1]}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", paddingBottom: 4 }}>
+              {["New","Contacted","In Discussion","Listing Agreed","On Hold","Rejected"].map(function(s) {
+                var colors = { "New": { bg: "rgba(96,165,250,0.1)", c: "#60a5fa", border: "rgba(96,165,250,0.2)" }, "Contacted": { bg: "rgba(251,191,36,0.1)", c: "#fbbf24", border: "rgba(251,191,36,0.2)" }, "In Discussion": { bg: "rgba(168,85,247,0.1)", c: "#a855f7", border: "rgba(168,85,247,0.2)" }, "Listing Agreed": { bg: "rgba(16,185,129,0.1)", c: "#10b981", border: "rgba(16,185,129,0.2)" }, "On Hold": { bg: "rgba(107,114,128,0.1)", c: "#6b7280", border: "rgba(107,114,128,0.2)" }, "Rejected": { bg: "rgba(239,68,68,0.1)", c: "#ef4444", border: "rgba(239,68,68,0.2)" } };
+                var sc = colors[s];
+                var count = leads.filter(function(l){return l.status===s;}).length;
+                return (
+                  <div key={s} style={{ flex: "0 0 auto", background: count > 0 ? sc.bg : "rgba(255,255,255,0.02)", border: "1px solid " + (count > 0 ? sc.border : "rgba(255,255,255,0.05)"), borderRadius: 4, padding: "10px 16px", minWidth: 110, cursor: "pointer" }}
+                    onClick={function(){setPipeFilter(pipeFilter===s?"all":s);}}>
+                    <div className="ticker" style={{ fontSize: 9, color: count > 0 ? sc.c : "#374151", letterSpacing: "0.06em", marginBottom: 6 }}>{s.toUpperCase()}</div>
+                    <div className="sans" style={{ fontSize: 20, fontWeight: 700, color: count > 0 ? sc.c : "#1e2940", lineHeight: 1 }}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#374151", fontSize: 12 }}>⌕</span>
+                <input value={pipeSearch} onChange={function(e){setPipeSearch(e.target.value);}} placeholder="SEARCH BY NAME, TWITTER OR SYMBOL..."
+                  className="ticker" style={{ paddingLeft: 28, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: "#0d1117", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 3, color: "#c9d1d9", fontSize: 11, outline: "none", width: "100%", letterSpacing: "0.04em" }} />
+              </div>
+              <div style={{ display: "flex", gap: 2 }}>
+                {[["newest","NEWEST FIRST"],["oldest","OLDEST FIRST"]].map(function(opt) {
+                  var active = pipeSortOrder === opt[0];
+                  return (
+                    <button key={opt[0]} onClick={function(){setPipeSortOrder(opt[0]);}} className="ticker"
+                      style={{ padding: "7px 14px", borderRadius: 3, border: "1px solid " + (active ? "rgba(251,191,36,0.35)" : "rgba(255,255,255,0.06)"), background: active ? "rgba(251,191,36,0.08)" : "transparent", color: active ? "#fbbf24" : "#4a5568", cursor: "pointer", fontSize: 10, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+                      {opt[1]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {leads.length === 0 ? (
               <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.08)", borderRadius: 6 }}>
-                <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
-                <p className="sans" style={{ color: "#374151", fontSize: 13, marginBottom: 16 }}>Use Scout AI to research projects and add them to pipeline</p>
+                <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS</div>
+                <p className="sans" style={{ color: "#374151", fontSize: 13, marginBottom: 16 }}>Add leads from Scout AI or History</p>
                 <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "8px 20px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>OPEN SCOUT AI →</button>
               </div>
             ) : (
               <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
-                <div style={{ minWidth: 700 }}>
-                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 160px 120px 100px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
-                    <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>CATEGORY</span><span>STAGE</span><span style={{ textAlign: "right" }}>ACTION</span>
+                <div style={{ minWidth: 860 }}>
+                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "120px 180px 140px 150px 1fr 130px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                    <span>ADDED</span><span>PROJECT</span><span>TWITTER</span><span>STATUS</span><span>EMAIL</span><span style={{ textAlign: "right" }}>ACTIONS</span>
                   </div>
-                  {leads.map(function(p, i) {
-                    return (
-                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 160px 120px 100px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 4, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{p.logo||"🪙"}</div>
-                          <div style={{ minWidth: 0 }}>
-                            <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                            {p.twitter && <div className="ticker" style={{ color: "#4a5568", fontSize: 9 }}>{p.twitter}</div>}
+                  {leads
+                    .filter(function(l) {
+                      var ms = pipeFilter==="all" || l.status===pipeFilter;
+                      var mq = !pipeSearch || l.name.toLowerCase().includes(pipeSearch.toLowerCase()) || (l.twitter||"").toLowerCase().includes(pipeSearch.toLowerCase()) || (l.symbol||"").toLowerCase().includes(pipeSearch.toLowerCase());
+                      return ms && mq;
+                    })
+                    .sort(function(a,b) {
+                      var at = a.remarks&&a.remarks.length>0?new Date(a.remarks[a.remarks.length-1].ts):new Date(a.addedAt||Date.now());
+                      var bt = b.remarks&&b.remarks.length>0?new Date(b.remarks[b.remarks.length-1].ts):new Date(b.addedAt||Date.now());
+                      return pipeSortOrder==="newest"?bt-at:at-bt;
+                    })
+                    .map(function(p, i) {
+                      var colors = { "New":"#60a5fa","Contacted":"#fbbf24","In Discussion":"#a855f7","Listing Agreed":"#10b981","On Hold":"#6b7280","Rejected":"#ef4444" };
+                      var sBg = { "New":"rgba(96,165,250,0.08)","Contacted":"rgba(251,191,36,0.08)","In Discussion":"rgba(168,85,247,0.08)","Listing Agreed":"rgba(16,185,129,0.08)","On Hold":"rgba(107,114,128,0.08)","Rejected":"rgba(239,68,68,0.08)" };
+                      var sBorder = { "New":"rgba(96,165,250,0.2)","Contacted":"rgba(251,191,36,0.2)","In Discussion":"rgba(168,85,247,0.2)","Listing Agreed":"rgba(16,185,129,0.2)","On Hold":"rgba(107,114,128,0.2)","Rejected":"rgba(239,68,68,0.2)" };
+                      return (
+                        <div key={p.id} style={{ display: "grid", gridTemplateColumns: "120px 180px 140px 150px 1fr 130px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0?"transparent":"rgba(255,255,255,0.01)" }}>
+                          <div>
+                            <div className="ticker" style={{ fontSize: 10, color: "#c9d1d9", whiteSpace: "nowrap" }}>{p.addedAt ? new Date(p.addedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "—"}</div>
+                            <div className="ticker" style={{ fontSize: 9, color: p.remarks&&p.remarks.length>0?"#fbbf24":"#374151", marginTop: 2, whiteSpace: "nowrap" }}>
+                              {p.remarks&&p.remarks.length>0 ? "↻ " + new Date(p.remarks[p.remarks.length-1].ts).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) + " " + new Date(p.remarks[p.remarks.length-1].ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : "no activity"}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 4, background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{p.logo||"🪙"}</div>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                              <div className="ticker" style={{ color: "#374151", fontSize: 9 }}>{p.category||""}</div>
+                            </div>
+                          </div>
+                          <div>
+                            {p.twitter
+                              ? <button onClick={function(){setExternalLinkPipe({url:"https://twitter.com/"+p.twitter.replace("@",""),label:"Twitter: "+p.twitter});}} className="ticker" style={{ fontSize: 11, color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer", whiteSpace: "nowrap" }}>{p.twitter} ↗</button>
+                              : <span className="ticker" style={{ color: "#374151", fontSize: 11 }}>—</span>}
+                          </div>
+                          <div>
+                            <select value={p.status||"New"} onChange={function(e){setLeads(function(prev){return prev.map(function(l){return l.id===p.id?Object.assign({},l,{status:e.target.value}):l;});});}} className="ticker"
+                              style={{ padding: "3px 8px", background: sBg[p.status||"New"], border: "1px solid " + sBorder[p.status||"New"], color: colors[p.status||"New"], borderRadius: 3, cursor: "pointer", fontSize: 9, outline: "none", width: "100%", appearance: "none" }}>
+                              {["New","Contacted","In Discussion","Listing Agreed","On Hold","Rejected"].map(function(s){return <option key={s} value={s} style={{background:"#0d1117",color:"#c9d1d9"}}>{s}</option>;})}
+                            </select>
+                          </div>
+                          <div style={{ paddingRight: 8 }}>
+                            {p.bdEmail&&p.bdEmail!=="Unknown"
+                              ? <span className="ticker" style={{ color: "#10b981", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{p.bdEmail}</span>
+                              : <span className="ticker" style={{ color: "#1e2940", fontSize: 10 }}>NOT FOUND</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                            <button onClick={function(){setPipeSelected(p);setPipeShowSummary(false);}} className="ticker"
+                              style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                              VIEW{p.remarks&&p.remarks.length>0&&<span style={{background:"#fbbf24",color:"#080a0f",borderRadius:10,fontSize:8,padding:"0 4px",fontWeight:700}}>{p.remarks.length}</span>}
+                            </button>
+                            <button onClick={function(){removeLead(p.id);}} className="ticker"
+                              style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(239,68,68,0.15)", color: "#ef4444", borderRadius: 2, cursor: "pointer", fontSize: 9 }}>✕</button>
                           </div>
                         </div>
-                        <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, whiteSpace: "nowrap" }}>{p.symbol}</span>
-                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.chain||"—"}</span>
-                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap" }}>{p.category||"—"}</span>
-                        <span className="ticker" style={{ fontSize: 10, color: p.stage==="Listed"?"#10b981":p.stage==="Post-Launch"?"#60a5fa":"#fbbf24", whiteSpace: "nowrap" }}>{(p.stage||"—").toUpperCase()}</span>
-                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                          <button onClick={function(){setContact(p);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>SCOUT</button>
-                          <button onClick={function(){removeLead(p.id);}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(239,68,68,0.15)", color: "#ef4444", borderRadius: 2, cursor: "pointer", fontSize: 9 }}>✕</button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
             )}
+
+            {pipeSelected && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }} onClick={function(){setPipeSelected(null);}}>
+                <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto" }} onClick={function(e){e.stopPropagation();}}>
+                  <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(251,191,36,0.02)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 6, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{pipeSelected.logo||"🪙"}</div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                            <h3 className="sans" style={{ color: "#f0f6fc", fontWeight: 700, fontSize: 18, margin: 0 }}>{pipeSelected.name}</h3>
+                            <span className="ticker" style={{ color: "#fbbf24", fontSize: 10, background: "rgba(251,191,36,0.1)", padding: "2px 6px", borderRadius: 2 }}>{pipeSelected.symbol}</span>
+                          </div>
+                          <div className="ticker" style={{ color: "#4a5568", fontSize: 10 }}>{pipeSelected.chain} · {pipeSelected.category}</div>
+                        </div>
+                      </div>
+                      <button onClick={function(){setPipeSelected(null);}} style={{ background: "none", border: "none", color: "#4a5568", fontSize: 22, cursor: "pointer" }}>×</button>
+                    </div>
+                    {pipeSelected.description&&<p className="sans" style={{ color: "#6b7280", fontSize: 13, margin: "10px 0 0", lineHeight: 1.6 }}>{pipeSelected.description}</p>}
+                  </div>
+                  <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14 }}>
+                        <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>STATUS</div>
+                        <select value={pipeSelected.status||"New"} onChange={function(e){var ns=e.target.value;setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{status:ns}):l;});});setPipeSelected(function(prev){return Object.assign({},prev,{status:ns});});}} className="ticker"
+                          style={{ width:"100%",padding:"6px 8px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",color:"#c9d1d9",borderRadius:3,fontSize:11,outline:"none",cursor:"pointer",appearance:"none" }}>
+                          {["New","Contacted","In Discussion","Listing Agreed","On Hold","Rejected"].map(function(s){return <option key={s} value={s} style={{background:"#0d1117",color:"#c9d1d9"}}>{s}</option>;})}
+                        </select>
+                      </div>
+                      <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14 }}>
+                        <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>LISTING INTEREST</div>
+                        <div className="sans" style={{ fontSize: 16, fontWeight: 700, color: pipeSelected.listingInterest==="High"?"#10b981":"#fbbf24" }}>{pipeSelected.listingInterest||"—"}</div>
+                      </div>
+                    </div>
+                    <div style={{ background: pipeSelected.bdEmail&&pipeSelected.bdEmail!=="Unknown"?"rgba(16,185,129,0.05)":"#080a0f", border: "1px solid " + (pipeSelected.bdEmail&&pipeSelected.bdEmail!=="Unknown"?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.06)"), borderRadius: 4, padding: 14 }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 8 }}>EMAIL</div>
+                      {pipeSelected.bdEmail&&pipeSelected.bdEmail!=="Unknown"
+                        ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="ticker" style={{ color: "#10b981", fontSize: 13 }}>{pipeSelected.bdEmail}</span>
+                            <button onClick={function(){navigator.clipboard.writeText(pipeSelected.bdEmail);}} className="ticker" style={{ padding: "2px 8px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, flexShrink: 0 }}>COPY</button>
+                          </div>
+                        : <span className="ticker" style={{ color: "#1e2940", fontSize: 11 }}>NOT FOUND</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[["🌐 Website", pipeSelected.website?"https://"+pipeSelected.website:null],["🐦 Twitter",pipeSelected.twitter?"https://twitter.com/"+pipeSelected.twitter.replace("@",""):null]].map(function(row){
+                        return row[1] ? <button key={row[0]} onClick={function(){setExternalLinkPipe({url:row[1],label:row[0]});}} className="ticker" style={{ padding:"5px 12px",background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.15)",color:"#60a5fa",borderRadius:3,fontSize:10,cursor:"pointer" }}>{row[0]} ↗</button> : null;
+                      })}
+                    </div>
+                    <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
+                      <button onClick={function(){setPipeShowSummary(function(s){return !s;});}} className="ticker"
+                        style={{ width:"100%",padding:"11px 14px",background:"transparent",border:"none",color:pipeShowSummary?"#fbbf24":"#4a5568",cursor:"pointer",fontSize:10,letterSpacing:"0.08em",textAlign:"left",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+                        <span>FULL PROJECT SUMMARY</span>
+                        <span style={{ fontSize:14,display:"inline-block",transform:pipeShowSummary?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.2s" }}>›</span>
+                      </button>
+                      {pipeShowSummary && (
+                        <div style={{ padding:"0 14px 14px",borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+                          <p className="sans" style={{ color:"#6b7280",fontSize:13,lineHeight:1.8,margin:"12px 0 0" }}>{pipeSelected.description||"No summary available."}</p>
+                          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:12 }}>
+                            {[["CATEGORY",pipeSelected.category],["CHAIN",pipeSelected.chain],["STAGE",pipeSelected.stage],["TWITTER",pipeSelected.twitter],["WEBSITE",pipeSelected.website]].map(function(row){
+                              return row[1]&&row[1]!=="Unknown" ? <div key={row[0]} style={{background:"#0d1117",borderRadius:3,padding:"8px 10px"}}><div className="ticker" style={{fontSize:8,color:"#374151",letterSpacing:"0.1em",marginBottom:4}}>{row[0]}</div><div className="sans" style={{fontSize:12,color:"#c9d1d9",fontWeight:500}}>{row[1]}</div></div> : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ background: "#080a0f", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: 14 }}>
+                      <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.1em", marginBottom: 12 }}>REMARKS & ACTIVITY LOG</div>
+                      <div style={{ marginBottom: 14 }}>
+                        <textarea value={pipeNoteText} onChange={function(e){setPipeNoteText(e.target.value);}} placeholder="Add a remark or follow-up note..."
+                          className="sans" style={{ width:"100%",minHeight:70,background:"#0d1117",border:"1px solid rgba(255,255,255,0.08)",borderRadius:3,color:"#c9d1d9",fontSize:13,outline:"none",resize:"none",lineHeight:1.6,padding:"10px 12px",boxSizing:"border-box" }} />
+                        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6 }}>
+                          <span className="ticker" style={{ fontSize:9,color:"#374151" }}>⌘ + ENTER to save</span>
+                          <button onClick={function(){
+                            if(!pipeNoteText.trim())return;
+                            var r={text:pipeNoteText.trim(),ts:new Date()};
+                            setLeads(function(prev){return prev.map(function(l){return l.id===pipeSelected.id?Object.assign({},l,{remarks:[...(l.remarks||[]),r]}):l;});});
+                            setPipeSelected(function(prev){return Object.assign({},prev,{remarks:[...(prev.remarks||[]),r]});});
+                            setPipeNoteText("");
+                          }} disabled={!pipeNoteText.trim()} className="ticker"
+                            style={{ padding:"5px 14px",background:pipeNoteText.trim()?"rgba(251,191,36,0.1)":"rgba(255,255,255,0.03)",border:"1px solid "+(pipeNoteText.trim()?"rgba(251,191,36,0.3)":"rgba(255,255,255,0.06)"),color:pipeNoteText.trim()?"#fbbf24":"#374151",borderRadius:3,cursor:pipeNoteText.trim()?"pointer":"default",fontSize:10,letterSpacing:"0.06em" }}>
+                            + ADD REMARK
+                          </button>
+                        </div>
+                      </div>
+                      {pipeSelected.remarks&&pipeSelected.remarks.length>0
+                        ? <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+                            {pipeSelected.remarks.slice().reverse().map(function(r,i){
+                              return (
+                                <div key={i} style={{ background:"#0d1117",border:"1px solid rgba(255,255,255,0.06)",borderRadius:3,padding:"10px 12px" }}>
+                                  <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+                                    <div style={{ width:6,height:6,borderRadius:"50%",background:"#fbbf24",flexShrink:0 }} />
+                                    <span className="ticker" style={{ fontSize:9,color:"#fbbf24",letterSpacing:"0.06em" }}>
+                                      {new Date(r.ts).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} · {new Date(r.ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+                                    </span>
+                                    {i===0&&<span className="ticker" style={{ fontSize:8,color:"#10b981",background:"rgba(16,185,129,0.1)",padding:"1px 5px",borderRadius:2 }}>LATEST</span>}
+                                  </div>
+                                  <p className="sans" style={{ color:"#c9d1d9",fontSize:13,margin:0,lineHeight:1.6 }}>{r.text}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        : <div className="ticker" style={{ fontSize:10,color:"#1e2940",textAlign:"center",padding:"16px 0" }}>NO REMARKS YET</div>}
+                    </div>
+                    <div style={{ display:"flex",gap:8 }}>
+                      <button className="ticker" style={{ flex:1,padding:"10px 0",borderRadius:4,border:"1px solid rgba(251,191,36,0.35)",background:"rgba(251,191,36,0.08)",color:"#fbbf24",cursor:"pointer",fontSize:11,letterSpacing:"0.06em" }}>🛸 RE-SCOUT</button>
+                      <button onClick={function(){removeLead(pipeSelected.id);setPipeSelected(null);}} className="ticker" style={{ padding:"10px 20px",borderRadius:4,border:"1px solid rgba(239,68,68,0.2)",background:"rgba(239,68,68,0.06)",color:"#ef4444",cursor:"pointer",fontSize:11 }}>REMOVE</button>
+                      <button onClick={function(){setPipeSelected(null);}} className="ticker" style={{ padding:"10px 16px",borderRadius:4,border:"1px solid rgba(255,255,255,0.06)",background:"transparent",color:"#4a5568",cursor:"pointer",fontSize:11 }}>CLOSE</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {externalLinkPipe && (
+              <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:20 }} onClick={function(){setExternalLinkPipe(null);}}>
+                <div style={{ background:"#0d1117",border:"1px solid rgba(251,191,36,0.3)",borderRadius:6,padding:28,maxWidth:400,width:"100%" }} onClick={function(e){e.stopPropagation();}}>
+                  <div className="ticker" style={{ fontSize:9,color:"#fbbf24",letterSpacing:"0.1em",marginBottom:14 }}>EXTERNAL LINK</div>
+                  <p className="sans" style={{ color:"#c9d1d9",fontSize:14,margin:"0 0 10px" }}>You are leaving Scout and visiting:</p>
+                  <div style={{ background:"#080a0f",border:"1px solid rgba(255,255,255,0.06)",borderRadius:4,padding:"10px 14px",marginBottom:14 }}>
+                    <div className="ticker" style={{ fontSize:10,color:"#6b7280",marginBottom:4 }}>{externalLinkPipe.label}</div>
+                    <div className="ticker" style={{ fontSize:11,color:"#60a5fa",wordBreak:"break-all" }}>{externalLinkPipe.url}</div>
+                  </div>
+                  <p className="sans" style={{ color:"#4a5568",fontSize:12,marginBottom:20,lineHeight:1.6 }}>Scout is not responsible for the content of external sites. Continue?</p>
+                  <div style={{ display:"flex",gap:8 }}>
+                    <button onClick={function(){window.open(externalLinkPipe.url,"_blank","noopener,noreferrer");setExternalLinkPipe(null);}} className="ticker" style={{ flex:1,padding:"10px 0",borderRadius:4,border:"1px solid rgba(251,191,36,0.4)",background:"rgba(251,191,36,0.1)",color:"#fbbf24",cursor:"pointer",fontSize:11,letterSpacing:"0.08em" }}>CONTINUE ↗</button>
+                    <button onClick={function(){setExternalLinkPipe(null);}} className="ticker" style={{ padding:"10px 20px",borderRadius:4,border:"1px solid rgba(255,255,255,0.08)",background:"transparent",color:"#4a5568",cursor:"pointer",fontSize:11 }}>CANCEL</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
