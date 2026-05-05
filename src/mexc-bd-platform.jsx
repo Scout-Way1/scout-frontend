@@ -938,24 +938,25 @@ DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or 
         select option{background:#0a0d14}
       `}</style>
 
-      <nav className="sticky top-0 z-30 flex items-center justify-between px-6 py-3.5" style={{ background: "rgba(6,8,15,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)" }}>M</div>
-            <span className="font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "1.05rem" }}>Scout <span style={{ color: "#ff6a00" }}>Scout</span></span>
+      <nav className="sticky top-0 z-30" style={{ background: "rgba(6,8,15,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white flex-shrink-0" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)" }}>S</div>
+            <span className="font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "1rem" }}>Scout <span style={{ color: "#ff6a00" }}>BD</span></span>
           </div>
-          <div className="hidden md:flex gap-1">
-            {NAV.map(item => (
-              <button key={item.id} onClick={() => setPage(item.id)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{ background: page === item.id ? "rgba(255,106,0,0.12)" : "transparent", color: page === item.id ? "#ff6a00" : "#6b7280", border: page === item.id ? "1px solid rgba(255,106,0,0.25)" : "1px solid transparent" }}>
-                {item.label}
-                {item.badge && <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white", fontSize: "9px" }}>{item.badge}</span>}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs flex-shrink-0" style={{ background: "rgba(255,106,0,0.1)", border: "1px solid rgba(255,106,0,0.2)", color: "#ff6a00" }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />Live
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs" style={{ background: "rgba(255,106,0,0.1)", border: "1px solid rgba(255,106,0,0.2)", color: "#ff6a00" }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />BD Portal
+        <div className="flex gap-1 px-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {NAV.map(item => (
+            <button key={item.id} onClick={() => setPage(item.id)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-all"
+              style={{ background: page === item.id ? "rgba(255,106,0,0.12)" : "transparent", color: page === item.id ? "#ff6a00" : "#6b7280", border: page === item.id ? "1px solid rgba(255,106,0,0.25)" : "1px solid transparent" }}>
+              {item.label}
+              {item.badge && <span className="px-1 py-0.5 rounded font-bold" style={{ background: "linear-gradient(135deg,#ff6a00,#ee0979)", color: "white", fontSize: "9px" }}>{item.badge}</span>}
+            </button>
+          ))}
         </div>
       </nav>
 
