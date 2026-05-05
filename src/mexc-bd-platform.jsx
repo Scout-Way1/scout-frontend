@@ -1817,8 +1817,8 @@ export default function App() {
             )}
 
             {pipeSelected && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", overflowY: "auto", zIndex: 50, padding: "40px 20px", display: "flex", alignItems: "flex-start", justifyContent: "center" }} onClick={function(){setPipeSelected(null);}}>
-                <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, width: "100%", maxWidth: 880, margin: "0 auto" }} onClick={function(e){e.stopPropagation();}}>
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.88)", overflowY: "auto", zIndex: 50, padding: "40px 20px" }} onClick={function(){setPipeSelected(null);}}>
+                <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, width: "100%", maxWidth: 880, margin: "0 auto", marginBottom: 40 }} onClick={function(e){e.stopPropagation();}}>
                   <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(251,191,36,0.02)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
