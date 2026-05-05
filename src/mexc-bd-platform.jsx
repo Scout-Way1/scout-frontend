@@ -503,7 +503,6 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       addLog("✅ Done — " + ei + " searches run");
 
       const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
-      addLog("📄 Length: " + txt.length + " — " + txt.slice(0, 80));
 
       let parsed = SAFE_JSON(txt);
       if (!parsed) {
@@ -971,114 +970,116 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 }
 
 
+
 const fetchDexScreener = async (setDexData, setDexLoading, setDexLastUpdate) => {
-  setDexLoading(true);
+setDexLoading(true);
 
-  // First: immediately show static data so the UI is never empty
-  loadStaticFeed();
+// First: immediately show static data so the UI is never empty
+loadStaticFeed();
 
-  // Then: try to enrich with live AI web search
-  try {
-    const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1024,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
-      }),
-    });
+// Then: try to enrich with live AI web search
+try {
+  const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 1024,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      messages: [{ role: "user", content: `Search "dexscreener trending tokens today" and "dexscreener new listings". List the top 8 trending and 5 new tokens found. For each return name, symbol, chain, twitter, price, 24h% change. Return ONLY JSON: {"trending":[{"name":"x","symbol":"X","chain":"solana","twitter":"@x","price":"$0.1","change24h":"+50","volume":"$5M","dexUrl":"https://dexscreener.com/..."}],"new":[...]}` }],
+    }),
+  });
 
-    if (res.ok) {
-      let data = await res.json();
-      let itr = 0;
-      while (data.stop_reason === "tool_use" && itr < 5) {
-        itr++;
-        data = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5", max_tokens: 1024,
-            tools: [{ type: "web_search_20250305", name: "web_search" }],
-            messages: [
-              { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
-              { role: "assistant", content: data.content },
-              { role: "user", content: data.content.filter(b => b.type==="tool_use").map(b => ({ type:"tool_result", tool_use_id:b.id, content:"done" })) },
-            ],
-          }),
-        }).then(r => r.json());
-      }
-
-      const txt = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
-      const parsed = SAFE_JSON(txt);
-      if (parsed && parsed.trending && parsed.trending.length > 0 || parsed && parsed.new && parsed.new.length > 0) {
-        const toP = (item, i, source) => ({
-          id: `live-${source}-${i}`, rank: i+1,
-          name: item.name||"Unknown", symbol: (item.symbol||"?").toUpperCase(),
-          logo: "🪙", isImg: false, chain: item.chain||"—", contract: "",
-          dexUrl: item.dexUrl||`https://dexscreener.com/search?q=${item.symbol}`,
-          twitter: item.twitter||"—", telegram: item.telegram||"—", website: item.website||"—",
-          price: item.price||"—",
-          change24h: item.change24h?(String(item.change24h).match(/^[+-]/)?item.change24h+"%":"+"+item.change24h+"%"):"—",
-          change24hRaw: parseFloat(item.change24h)||0,
-          volume: item.volume||"—", mcap: item.mcap||"—", mcapRaw: 0,
-          source, isNew: source==="new", addedDaysAgo: source==="new"?0:1,
-          category: "DeFi", stage: "Listed", isImg: false,
-          description: item.description||`${item.name} on DexScreener`,
-          tags: [item.chain||"Chain", source==="new"?"🆕 New":"🔥 Trending"],
-          trendScore: Math.min(99, 95-i*3),
-        });
-        const trending = (parsed.trending||[]).map((x,i)=>toP(x,i,"trending"));
-        const newest   = (parsed.new||[]).map((x,i)=>toP(x,i,"new"));
-        const gainers  = [...trending,...newest].filter(p=>p.change24hRaw>0).sort((a,b)=>b.change24hRaw-a.change24hRaw).slice(0,12);
-        setDexData({ trending, new: newest, gainers: gainers.length>0?gainers:trending });
-        setDexLastUpdate(new Date());
-      }
+  if (res.ok) {
+    let data = await res.json();
+    let itr = 0;
+    while (data.stop_reason === "tool_use" && itr < 5) {
+      itr++;
+      data = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5", max_tokens: 1024,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          messages: [
+            { role: "user", content: `Search dexscreener trending tokens today and new listings. Return JSON with trending[] and new[] arrays.` },
+            { role: "assistant", content: data.content },
+            { role: "user", content: data.content.filter(b => b.type==="tool_use").map(b => ({ type:"tool_result", tool_use_id:b.id, content:"done" })) },
+          ],
+        }),
+      }).then(r => r.json());
     }
-  } catch(e) { console.warn("Live feed:", e.message); }
 
-  setDexLoading(false);
+    const txt = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+    const parsed = SAFE_JSON(txt);
+    if (parsed && parsed.trending && parsed.trending.length > 0 || parsed && parsed.new && parsed.new.length > 0) {
+      const toP = (item, i, source) => ({
+        id: `live-${source}-${i}`, rank: i+1,
+        name: item.name||"Unknown", symbol: (item.symbol||"?").toUpperCase(),
+        logo: "🪙", isImg: false, chain: item.chain||"—", contract: "",
+        dexUrl: item.dexUrl||`https://dexscreener.com/search?q=${item.symbol}`,
+        twitter: item.twitter||"—", telegram: item.telegram||"—", website: item.website||"—",
+        price: item.price||"—",
+        change24h: item.change24h?(String(item.change24h).match(/^[+-]/)?item.change24h+"%":"+"+item.change24h+"%"):"—",
+        change24hRaw: parseFloat(item.change24h)||0,
+        volume: item.volume||"—", mcap: item.mcap||"—", mcapRaw: 0,
+        source, isNew: source==="new", addedDaysAgo: source==="new"?0:1,
+        category: "DeFi", stage: "Listed", isImg: false,
+        description: item.description||`${item.name} on DexScreener`,
+        tags: [item.chain||"Chain", source==="new"?"🆕 New":"🔥 Trending"],
+        trendScore: Math.min(99, 95-i*3),
+      });
+      const trending = (parsed.trending||[]).map((x,i)=>toP(x,i,"trending"));
+      const newest   = (parsed.new||[]).map((x,i)=>toP(x,i,"new"));
+      const gainers  = [...trending,...newest].filter(p=>p.change24hRaw>0).sort((a,b)=>b.change24hRaw-a.change24hRaw).slice(0,12);
+      setDexData({ trending, new: newest, gainers: gainers.length>0?gainers:trending });
+      setDexLastUpdate(new Date());
+    }
+  }
+} catch(e) { console.warn("Live feed:", e.message); }
+
+setDexLoading(false);
 };
 
 const quickScout = async (project) => {
-  const twitterHint = project.twitter && project.twitter !== "—" ? ` Twitter: ${project.twitter}.` : "";
-  const websiteHint = project.website && project.website !== "—" ? ` Website: ${project.website}.` : "";
-  const prompt = `Find BD contacts for crypto project "${project.name}" (${project.symbol}) on ${project.chain}.${twitterHint}${websiteHint} Contract: ${project.contract || "unknown"}.
+const twitterHint = project.twitter && project.twitter !== "—" ? ` Twitter: ${project.twitter}.` : "";
+const websiteHint = project.website && project.website !== "—" ? ` Website: ${project.website}.` : "";
+const prompt = `Find BD contacts for crypto project "${project.name}" (${project.symbol}) on ${project.chain}.${twitterHint}${websiteHint} Contract: ${project.contract || "unknown"}.
 DexScreener: ${project.dexUrl || ""}
 Search: "${project.symbol} ${project.chain} bscscan" OR "${project.symbol} etherscan", "${project.name} official email", "${project.name} twitter telegram", "${project.symbol} coingecko"
 DO NOT invent emails. Return ONLY JSON: {"website":"domain","bdEmail":"email or Unknown","bdTelegram":"t.me/x or Unknown","twitterHandle":"@handle or Unknown","bestContactPath":"specific path","confidence":"High|Medium|Low","source":"where found"}`;
-  let msgs = [{ role: "user", content: prompt }];
-  let res = await SAFE_API(msgs);
-  let i = 0;
-  while (res.stop_reason === "tool_use" && i < 4 && !res._err) {
-    i++;
-    msgs.push({ role: "assistant", content: res.content });
-    msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
-    res = await SAFE_API(msgs);
-  }
-  const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
-  return SAFE_JSON(text) || { website: project.website || "Unknown", bdEmail: "Unknown", bdTelegram: project.telegram || "Unknown", twitterHandle: project.twitter || "Unknown", bestContactPath: project.twitter !== "—" ? `Twitter DM: ${project.twitter}` : "Manual research needed", confidence: "Low", source: "API unavailable" };
+let msgs = [{ role: "user", content: prompt }];
+let res = await SAFE_API(msgs);
+let i = 0;
+while (res.stop_reason === "tool_use" && i < 4 && !res._err) {
+  i++;
+  msgs.push({ role: "assistant", content: res.content });
+  msgs.push({ role: "user", content: res.content.filter(b => b.type === "tool_use").map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." })) });
+  res = await SAFE_API(msgs);
+}
+const text = res.content.filter(b => b.type === "text").map(b => b.text).join("");
+return SAFE_JSON(text) || { website: project.website || "Unknown", bdEmail: "Unknown", bdTelegram: project.telegram || "Unknown", twitterHandle: project.twitter || "Unknown", bestContactPath: project.twitter !== "—" ? `Twitter DM: ${project.twitter}` : "Manual research needed", confidence: "Low", source: "API unavailable" };
 };
 
 const runAutoScout = async (list, setAutoRunning, setAutoActive, setAutoLog, setAutoDone, setDoneCount, setEmailCount, autoStop) => {
-  autoStop.current = false; setAutoRunning(true); setAutoLog([]);
-  const queue = list.slice(0, 15);
-  for (const p of queue) {
-    if (autoStop.current) break;
-    setAutoActive(p.id);
-    setAutoLog(prev => [{ id: p.id, name: p.name, symbol: p.symbol, logo: p.logo, isImg: p.isImg, chain: p.chain, status: "scanning", ts: new Date() }, ...prev].slice(0, 50));
-    try {
-      const r = await quickScout(p);
-      setAutoDone(prev => ({ ...prev, [p.id]: r }));
-      setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "done", bdEmail: r.bdEmail, confidence: r.confidence } : l));
-    } catch {
-      setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "error" } : l));
-    }
-    if (!autoStop.current) await new Promise(r => setTimeout(r, 2500));
+autoStop.current = false; setAutoRunning(true); setAutoLog([]);
+const queue = list.slice(0, 15);
+for (const p of queue) {
+  if (autoStop.current) break;
+  setAutoActive(p.id);
+  setAutoLog(prev => [{ id: p.id, name: p.name, symbol: p.symbol, logo: p.logo, isImg: p.isImg, chain: p.chain, status: "scanning", ts: new Date() }, ...prev].slice(0, 50));
+  try {
+    const r = await quickScout(p);
+    setAutoDone(prev => ({ ...prev, [p.id]: r }));
+    setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "done", bdEmail: r.bdEmail, confidence: r.confidence } : l));
+  } catch {
+    setAutoLog(prev => prev.map(l => l.id === p.id ? { ...l, status: "error" } : l));
   }
-  setAutoActive(null); setAutoRunning(false);
+  if (!autoStop.current) await new Promise(r => setTimeout(r, 2500));
+}
+setAutoActive(null); setAutoRunning(false);
 };
+
 
 export default function App() {
   const [viewTab,  setViewTab]  = useState("top");
@@ -1816,8 +1817,8 @@ export default function App() {
             )}
 
             {pipeSelected && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }} onClick={function(){setPipeSelected(null);}}>
-                <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto" }} onClick={function(e){e.stopPropagation();}}>
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", overflowY: "auto", zIndex: 50, padding: "40px 20px" }} onClick={function(){setPipeSelected(null);}}>
+                <div style={{ background: "#0d1117", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 6, width: "100%", maxWidth: 520, margin: "0 auto" }} onClick={function(e){e.stopPropagation();}}>
                   <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(251,191,36,0.02)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
