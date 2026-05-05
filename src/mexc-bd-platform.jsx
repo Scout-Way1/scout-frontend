@@ -767,9 +767,11 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
               const confirmed = window.confirm("Rerun Scout AI for @" + handle + "?\n\nThis will search the web again and overwrite the saved result in History.");
               if (confirmed) {
                 forceRerun.current = true;
+                const currentHandle = handle;
                 setResult(null);
-                setPhase("idle");
-                setTimeout(() => runScout(), 50);
+                setPhase("loading");
+                setStream("");
+                runScout(currentHandle);
               }
             }} className="px-6 py-3 rounded-xl font-semibold text-sm" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.25)" }}>
               🔄 Rerun
