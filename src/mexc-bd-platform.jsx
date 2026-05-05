@@ -212,11 +212,18 @@ const SAFE_API = async (messages) => {
   try {
     const res = await fetch("https://scout-backend-8tru.onrender.com/api/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "anthropic-version": "2023-06-01" },
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "web-fetch-2025-09-10",
+      },
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 4000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        tools: [
+          { type: "web_search_20250305", name: "web_search" },
+          { type: "web_fetch_20250910", name: "web_fetch", max_uses: 5 },
+        ],
         messages,
       }),
     });
@@ -591,8 +598,8 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 
       const searchTarget = isWebsite ? handle.trim() : "@" + h;
       const prompt = isWebsite
-        ? "You are a crypto BD researcher. Find ALL contact information for the crypto project at website " + h + ". THOROUGHLY search: 1) Visit the website directly — check /contact, /about, /team pages for any email, 2) Search '" + h + " email BD contact', 3) Check BSCScan or Etherscan for this project. Look for ANY email: contact@, hello@, bd@, info@, partnerships@, listing@. Return ONLY raw JSON: {\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about the project\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"" + h + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip on how to reach them\"}]}"
-        : "You are a crypto BD researcher for an exchange listing team. Research the project @" + h + " thoroughly.\n\nSearch in this order:\n1. Find their official website — search '" + h + " crypto official website'\n2. Visit their website — check /contact, /about, /team pages for emails\n3. Search '" + h + " bd email listing contact'\n4. Check BSCScan or Etherscan for team emails\n5. Search LinkedIn for their BD or partnerships team\n6. Check their Telegram group for contact info\n\nReturn ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about what they do\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"domain.com\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real verified email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip\"}]}";
+        ? "You are a crypto BD researcher. Find ALL contact information for the crypto project at website " + h + ".\n\nYou have TWO tools: web_search (find URLs) and web_fetch (read full page content). Use web_fetch aggressively — it reads entire pages, not just snippets, which is where emails actually live.\n\nWORKFLOW:\n1. web_fetch the homepage at https://" + h + " to get the full page content\n2. web_fetch https://" + h + "/contact, https://" + h + "/about, https://" + h + "/team — these often have direct emails\n3. Look at the homepage for links to docs, partnerships, ecosystem pages — web_fetch those too\n4. Use web_search only when you need to find URLs you don't already have, e.g. '" + h + " linkedin BD partnerships'\n5. If you find any LinkedIn/team URLs in fetched content, web_fetch those too\n\nLook for ANY email: contact@, hello@, bd@, info@, partnerships@, listing@, team@, founder names with @ chains. Return ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about the project\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"" + h + "\",\"twitter\":\"@handle or Unknown\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip on how to reach them\"}]}"
+        : "You are a crypto BD researcher for an exchange listing team. Research the project @" + h + " thoroughly.\n\nYou have TWO tools: web_search (find URLs) and web_fetch (read full page content). Use web_fetch aggressively — it reads entire pages, not just snippets, which is where emails and team info actually live.\n\nWORKFLOW:\n1. web_search '" + h + " crypto official website' to find their domain\n2. Once you have the domain, web_fetch the homepage to get the full content\n3. web_fetch /contact, /about, /team pages on the domain — direct emails often live there\n4. web_fetch any docs/partnerships/ecosystem pages linked from the homepage\n5. web_search '" + h + " bd email listing contact' and '" + h + " linkedin partnerships' for additional URLs\n6. web_fetch any LinkedIn or BSCScan/Etherscan URLs that come back\n7. If their Telegram group is referenced, note the t.me link\n\nLook for ANY email: contact@, hello@, bd@, info@, partnerships@, listing@, team@, named-employee emails. Prefer fetching pages over reading search snippets. Return ONLY raw JSON:\n{\"projectName\":\"Full Name\",\"symbol\":\"TICKER\",\"emoji\":\"🚀\",\"tagline\":\"one line description\",\"description\":\"2-3 sentences about what they do\",\"category\":\"DeFi|Layer 1|Layer 2|AI|DePIN|RWA|Infra|Other\",\"stage\":\"Pre-Launch|Post-Launch|Listed\",\"chain\":\"chain name\",\"website\":\"domain.com\",\"twitter\":\"@handle\",\"telegram\":\"t.me/x or Unknown\",\"bdEmail\":\"real verified email or Unknown\",\"bdTelegram\":\"t.me/x or Unknown\",\"bestContactPath\":\"specific actionable recommendation\",\"outreachStrategy\":\"2-3 sentence exchange listing pitch\",\"bdScore\":75,\"listingInterest\":\"High|Medium|Low\",\"dataQuality\":\"High|Medium|Low\",\"contacts\":[{\"name\":\"Full Name\",\"role\":\"exact role\",\"email\":\"email or Unknown\",\"twitter\":\"@handle or Unknown\",\"linkedin\":\"url or Unknown\",\"telegram\":\"@handle or Unknown\",\"confidence\":\"High|Medium|Low\",\"bestPath\":\"Email|Twitter DM|Telegram|LinkedIn\",\"notes\":\"specific tip\"}]}";
 
       let msgs = [{ role: "user", content: prompt }];
 
@@ -636,10 +643,18 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       let ei = 0;
       while (res.stop_reason === "tool_use" && ei < 6 && !res._err) {
         ei++;
-        for (const b of res.content) { if (b.type === "tool_use") addLog("🔎 " + (b.input && b.input.query)); }
+        for (const b of res.content) {
+          if (b.type === "tool_use") {
+            if (b.name === "web_fetch") {
+              addLog("📄 " + (b.input && b.input.url ? b.input.url : "fetching page"));
+            } else {
+              addLog("🔎 " + (b.input && b.input.query ? b.input.query : "searching"));
+            }
+          }
+        }
         const toolResults = res.content
           .filter(b => b.type === "tool_use")
-          .map(b => ({ type: "tool_result", tool_use_id: b.id, content: "Search completed." }));
+          .map(b => ({ type: "tool_result", tool_use_id: b.id, content: b.name === "web_fetch" ? "Fetch completed." : "Search completed." }));
         msgs = [
           { role: "user", content: prompt },
           { role: "assistant", content: res.content },
