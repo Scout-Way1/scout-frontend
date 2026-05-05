@@ -1245,7 +1245,7 @@ export default function App() {
       {/* Top bar */}
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, background: "rgba(8,10,15,0.98)", borderBottom: "1px solid rgba(251,191,36,0.12)", backdropFilter: "blur(20px)" }}>
         {/* Main nav row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 52 }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 52 }}>
           {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {/* Logo mark — clickable, goes to Scout AI */}
