@@ -329,11 +329,11 @@ function ProjectModal({ project, onClose, onFindContacts }) {
 }
 
 const SCOUT_STEPS = [
-  { icon: "🌐", label: "Find domain" },
-  { icon: "🏦", label: "Block explorers" },
-  { icon: "📧", label: "Extract emails" },
-  { icon: "🤖", label: "AI enrichment" },
-  { icon: "💡", label: "profile" },
+  { icon: "🌐", label: "Find domain",     detail: "Locates official website from Twitter" },
+  { icon: "🏦", label: "Scan explorer",   detail: "Checks BSCScan & Etherscan for team info" },
+  { icon: "📧", label: "Extract emails",  detail: "Scrapes contact & about pages" },
+  { icon: "🤖", label: "AI enrichment",   detail: "Builds full profile with Claude AI" },
+  { icon: "💡", label: "Compile report",  detail: "Generates outreach strategy & score" },
 ];
 
 function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
@@ -597,30 +597,71 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
       </div>
 
       {phase === "idle" && !result && (
-        <>
-          <div className="grid grid-cols-5 gap-3 mb-6">
-            {SCOUT_STEPS.map((s, i) => (
-              <div key={i} className="rounded-xl p-4 text-center relative" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                {i < 4 && <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 text-gray-700 text-xs">›</div>}
-                <div className="text-2xl mb-2">{s.icon}</div>
-                <p className="text-white text-xs font-semibold">{s.label}</p>
-              </div>
-            ))}
+        <div className="fade-in">
+
+          {/* Headline */}
+          <div style={{ marginBottom: 32 }}>
+            <h1 className="sans" style={{ fontSize: 30, fontWeight: 700, color: "#f0f6fc", margin: "0 0 10px", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+              Find anyone's contact.<br />
+              <span style={{ color: "#fbbf24" }}>In seconds.</span>
+            </h1>
+            <p className="sans" style={{ color: "#4a5568", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
+              Enter a Twitter handle or website — AI searches the web and builds a complete contact profile with emails, outreach strategy and score.
+            </p>
           </div>
-          {history.length > 0 && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}><span className="text-white font-semibold text-sm">🕓 Recent Scouts</span></div>
-              {history.map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-5 py-3 border-b cursor-pointer hover:bg-white/5" style={{ borderColor: "rgba(255,255,255,0.04)" }} onClick={() => { setResult(item.result); setPhase("done"); }}>
-                  <span className="text-2xl">{item.result.emoji || "🔍"}</span>
-                  <div className="flex-1"><p className="text-white text-sm font-semibold">{item.result.projectName}</p><p className="text-gray-600 text-xs">@{item.handle}</p></div>
-                  <StagePill stage={item.result.stage || "Listed"} />
-                  <p className="text-xs font-bold" style={{ color: BD(item.result.bdScore || 50) }}>BD {item.result.bdScore || "—"}</p>
+
+          {/* How it works */}
+          <div style={{ marginBottom: 32 }}>
+            <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.12em", marginBottom: 14 }}>HOW IT WORKS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
+              {SCOUT_STEPS.map(function(s, i) {
+                return (
+                  <div key={i} style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 5, padding: "14px 12px", position: "relative", transition: "all 0.2s" }}>
+                    <div className="ticker" style={{ fontSize: 9, color: "#1e2940", marginBottom: 10, letterSpacing: "0.06em" }}>0{i+1}</div>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", border: "1px solid rgba(251,191,36,0.4)", background: "rgba(251,191,36,0.08)", marginBottom: 10 }} />
+                    <div className="ticker" style={{ fontSize: 9, color: "#c9d1d9", letterSpacing: "0.06em", marginBottom: 6, lineHeight: 1.4 }}>{s.label.toUpperCase()}</div>
+                    <div className="sans" style={{ fontSize: 11, color: "#374151", lineHeight: 1.5 }}>{s.detail || s.label}</div>
+                    {i < 4 && <div style={{ position: "absolute", top: "42%", right: -5, width: 9, height: 1, background: "rgba(251,191,36,0.2)", zIndex: 1 }} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recent searches from contactHistory prop */}
+          {contactHistory && contactHistory.length > 0 && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151", letterSpacing: "0.12em" }}>RECENT SEARCHES</div>
+                <div className="ticker" style={{ fontSize: 9, color: "#374151" }}>{contactHistory.length} RECORDS IN HISTORY</div>
+              </div>
+              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 5, overflow: "hidden" }}>
+                <div className="ticker" style={{ display: "grid", gridTemplateColumns: "1fr 80px 1fr 110px 60px", padding: "8px 16px", background: "rgba(251,191,36,0.03)", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                  <span>PROJECT</span><span>SYMBOL</span><span>EMAIL</span><span>INTEREST</span><span style={{ textAlign: "right" }}>SCORE</span>
                 </div>
-              ))}
+                {contactHistory.slice(0, 5).map(function(r, i) {
+                  var hasEmail = r.bdEmail && r.bdEmail !== "Unknown";
+                  var score = r.fullResult && r.fullResult.bdScore;
+                  var interest = r.fullResult && r.fullResult.listingInterest;
+                  return (
+                    <div key={i} className="row-hover" onClick={function() { if (r.fullResult) { setResult(r.fullResult); setPhase("done"); setResultTab("overview"); } }}
+                      style={{ display: "grid", gridTemplateColumns: "1fr 80px 1fr 110px 60px", padding: "11px 16px", borderBottom: i < Math.min(contactHistory.length, 5)-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center", background: i%2===0?"transparent":"rgba(255,255,255,0.01)", cursor: "pointer", transition: "background 0.15s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: 4, background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{r.logo||"🪙"}</div>
+                        <span className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
+                      </div>
+                      <span className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>{r.symbol||"—"}</span>
+                      <span className="ticker" style={{ color: hasEmail?"#10b981":"#1e2940", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{hasEmail?r.bdEmail:"NOT FOUND"}</span>
+                      <span className="ticker" style={{ fontSize: 10, color: interest==="High"?"#10b981":interest==="Medium"?"#fbbf24":"#6b7280" }}>{interest?interest.toUpperCase():"—"}</span>
+                      <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score>=80?"#10b981":score>=60?"#fbbf24":"#ef4444", textAlign: "right" }}>{score||"—"}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-        </>
+
+        </div>
       )}
 
       {phase === "loading" && (
