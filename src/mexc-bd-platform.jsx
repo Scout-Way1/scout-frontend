@@ -1954,7 +1954,16 @@ export default function App() {
                         <span className="sans" style={{ fontSize: 15, fontWeight: 700, color: score ? scoreCol : "#374151" }}>{score||"—"}</span>
                         <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }} onClick={function(e){e.stopPropagation();}}>
                           <button onClick={function(){setHistoryModal(item);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>READ</button>
-                          <button onClick={function(){addLead({ id: "h-" + i, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: item.source||"DeFi", stage: "Listed", description: item.description||"", bdEmail: item.bdEmail||"", bdTelegram: item.bdTelegram||"", listingInterest: item.fullResult&&item.fullResult.listingInterest, bdScore: item.fullResult&&item.fullResult.bdScore, tags: [] }); setPage("pipeline");}} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
+                          <button onClick={function(){
+                            // Build a stable ID from twitter handle or name so re-clicks across filtered/sorted views don't collide
+                            var stableId = "h-" + (
+                              (item.twitter && item.twitter.replace("@","").toLowerCase()) ||
+                              (item.name && item.name.toLowerCase().replace(/\s+/g,"-")) ||
+                              ("idx-" + i)
+                            );
+                            addLead({ id: stableId, name: item.name, symbol: item.symbol, logo: item.logo, twitter: item.twitter, website: item.website, chain: item.chain||"—", category: item.source||"DeFi", stage: "Listed", description: item.description||"", bdEmail: item.bdEmail||"", bdTelegram: item.bdTelegram||"", listingInterest: item.fullResult&&item.fullResult.listingInterest, bdScore: item.fullResult&&item.fullResult.bdScore, tags: [] });
+                            setPage("pipeline");
+                          }} className="ticker" style={{ padding: "4px 10px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>+ PIPELINE</button>
                           <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(255,255,255,0.06)", color: "#4a5568", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>RE-SCOUT</button>
                         </div>
                       </div>
