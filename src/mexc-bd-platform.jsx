@@ -511,6 +511,17 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
     let log = "";
     const addLog = line => { log += line + "\n"; setStream(log); };
 
+    // Heartbeat: tick the terminal every 5s while we wait, so user sees progress
+    let elapsed = 0;
+    const heartbeat = setInterval(() => {
+      elapsed += 5;
+      if (elapsed === 5)  addLog("⏳ Waking backend… first request can take ~30s");
+      if (elapsed === 15) addLog("⏳ Still working — Claude is researching the project");
+      if (elapsed === 30) addLog("⏳ Web searches in progress, almost there");
+      if (elapsed === 60) addLog("⚠️  Taking longer than usual — the backend may be cold-starting");
+      if (elapsed === 90) addLog("⚠️  90s elapsed — if this stalls past 2min, refresh & retry");
+    }, 5000);
+
     try {
       addLog(isWebsite ? "🌐 Scouting " + h + "…" : "🚀 Scouting @" + h + "…");
       addLog("🔍 Searching for BD contacts…");
@@ -532,6 +543,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           return itemTwitter === searchH || itemName === searchH;
         });
         if (cached && cached.fullResult) {
+          clearInterval(heartbeat);
           addLog("⚡ Found in history — loading saved result instantly!");
           setResult(cached.fullResult);
           setPhase("done");
@@ -542,8 +554,17 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
 
       let res = await SAFE_API(msgs);
 
+      // Backend / network failure
+      if (res._err) {
+        clearInterval(heartbeat);
+        addLog("❌ Backend unreachable — check Render status or try again");
+        setPhase("error");
+        return;
+      }
+
       // If rate limited, fail immediately — no retries
       if (res.error && res.error.type === "rate_limit_error") {
+        clearInterval(heartbeat);
         addLog("❌ Rate limit hit — please wait 1 minute and try again");
         setPhase("error");
         return;
@@ -564,11 +585,14 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
         res = await SAFE_API(msgs);
         // Stop immediately if rate limited mid-search
         if (res.error && res.error.type === "rate_limit_error") {
+          clearInterval(heartbeat);
           addLog("❌ Rate limit hit — please wait 1 minute and try again");
           setPhase("error");
           return;
         }
       }
+      addLog("📄 Reading project data…");
+      addLog("🤖 Compiling intelligence report…");
       addLog("✅ Done — " + ei + " searches run");
 
       const txt = res.content.filter(b => b.type === "text").map(b => b.text).join("");
@@ -596,8 +620,10 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
         description: parsed.tagline || parsed.description,
         fullResult: parsed,
       });
+      clearInterval(heartbeat);
       setPhase("done");
     } catch (e) {
+      clearInterval(heartbeat);
       addLog("❌ " + e.message);
       setPhase("error");
     }
@@ -755,9 +781,9 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
             {(function() {
               // Compute how far we've progressed through SCOUT_STEPS based on stream markers + phase
               var hasStart    = /[🚀🌐]/.test(stream);                       // step 0: Find domain
-              var hasSearch   = /🔎/.test(stream);                           // step 1: Scan explorer
+              var hasSearch   = /🔎/.test(stream) || /⏳/.test(stream);      // step 1: Scan explorer (or heartbeat tick = waiting on first search)
               var hasPage     = /📄/.test(stream);                           // step 2: Extract emails
-              var hasAIText   = stream.length > 200 && !/^[🚀🌐🔎📄✅\s]*$/.test(stream); // step 3: AI enrichment (some prose appeared)
+              var hasAIText   = /🤖/.test(stream);                          // step 3: AI enrichment
               var allDone     = phase === "done";                            // step 4: Compile report
 
               // currentStep = number of steps completed (0..5)
@@ -791,11 +817,11 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           <div style={{ height: 2, background: "rgba(255,255,255,0.04)", borderRadius: 1, overflow: "hidden", marginBottom: 16 }}>
             <div style={{ height: "100%", background: "linear-gradient(90deg,#fbbf24,rgba(251,191,36,0.5))", width: (function() {
               var pct = 5;
-              if (/[🚀🌐]/.test(stream))  pct = 20;
-              if (/🔎/.test(stream))     pct = 40;
-              if (/📄/.test(stream))     pct = 60;
-              if (stream.length > 200 && !/^[🚀🌐🔎📄✅\s]*$/.test(stream)) pct = 80;
-              if (phase === "done")      pct = 100;
+              if (/[🚀🌐]/.test(stream))            pct = 20;
+              if (/🔎/.test(stream) || /⏳/.test(stream)) pct = 40;
+              if (/📄/.test(stream))                pct = 60;
+              if (/🤖/.test(stream))                pct = 80;
+              if (phase === "done")                 pct = 100;
               return pct;
             })() + "%", transition: "width 0.8s ease", boxShadow: "0 0 8px rgba(251,191,36,0.5)" }} />
           </div>
@@ -808,7 +834,7 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
             </div>
             {stream.split("\n").filter(Boolean).map(function(line, i) {
               return (
-                <div key={i} className="ticker" style={{ fontSize: 11, lineHeight: 1.7, color: line.startsWith("🔎") ? "#60a5fa" : line.startsWith("🚀") || line.startsWith("🌐") ? "#fbbf24" : line.startsWith("✅") ? "#10b981" : line.startsWith("📄") ? "#a5b4fc" : "#374151" }}>
+                <div key={i} className="ticker" style={{ fontSize: 11, lineHeight: 1.7, color: line.startsWith("🔎") ? "#60a5fa" : line.startsWith("🚀") || line.startsWith("🌐") ? "#fbbf24" : line.startsWith("✅") ? "#10b981" : line.startsWith("📄") ? "#a5b4fc" : line.startsWith("🤖") ? "#c084fc" : line.startsWith("⏳") ? "#6b7280" : line.startsWith("⚠️") ? "#fbbf24" : line.startsWith("❌") ? "#ef4444" : "#374151" }}>
                   {line}
                 </div>
               );
