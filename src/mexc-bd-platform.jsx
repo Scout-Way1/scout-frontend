@@ -682,28 +682,52 @@ function ScoutAIPage({ onAddLead, onAddToHistory, contactHistory, dbLoading }) {
           {/* Step indicators */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, position: "relative" }}>
             <div style={{ position: "absolute", top: 10, left: "10%", right: "10%", height: 1, background: "rgba(255,255,255,0.04)" }} />
-            {SCOUT_STEPS.map(function(s, i) {
-              var searchCount = (stream.match(/🔎/g) || []).length;
-              var done = searchCount > i * 1.2;
-              var active = !done && searchCount >= i * 1.2;
-              return (
-                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, zIndex: 1, flex: 1 }}>
-                  <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + (done ? "#fbbf24" : active ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.08)"), background: done ? "#fbbf24" : active ? "rgba(251,191,36,0.08)" : "#080a0f", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.4s", boxShadow: active ? "0 0 10px rgba(251,191,36,0.3)" : "none" }}>
-                    {done
-                      ? <span style={{ fontSize: 10, color: "#080a0f", fontWeight: 700 }}>✓</span>
-                      : active
-                      ? <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 0.6s infinite" }} />
-                      : null}
+            {(function() {
+              // Compute how far we've progressed through SCOUT_STEPS based on stream markers + phase
+              var hasStart    = /[🚀🌐]/.test(stream);                       // step 0: Find domain
+              var hasSearch   = /🔎/.test(stream);                           // step 1: Scan explorer
+              var hasPage     = /📄/.test(stream);                           // step 2: Extract emails
+              var hasAIText   = stream.length > 200 && !/^[🚀🌐🔎📄✅\s]*$/.test(stream); // step 3: AI enrichment (some prose appeared)
+              var allDone     = phase === "done";                            // step 4: Compile report
+
+              // currentStep = number of steps completed (0..5)
+              var currentStep = 0;
+              if (hasStart)  currentStep = 1;
+              if (hasSearch) currentStep = 2;
+              if (hasPage)   currentStep = 3;
+              if (hasAIText) currentStep = 4;
+              if (allDone)   currentStep = 5;
+
+              return SCOUT_STEPS.map(function(s, i) {
+                var done   = i < currentStep;
+                var active = i === currentStep && !allDone;
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, zIndex: 1, flex: 1 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid " + (done ? "#fbbf24" : active ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.08)"), background: done ? "#fbbf24" : active ? "rgba(251,191,36,0.08)" : "#080a0f", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.4s", boxShadow: active ? "0 0 10px rgba(251,191,36,0.3)" : "none" }}>
+                      {done
+                        ? <span style={{ fontSize: 10, color: "#080a0f", fontWeight: 700 }}>✓</span>
+                        : active
+                        ? <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24", animation: "pulse-dot 0.6s infinite" }} />
+                        : null}
+                    </div>
+                    <span className="ticker" style={{ fontSize: 8, letterSpacing: "0.04em", color: done ? "#fbbf24" : active ? "rgba(251,191,36,0.5)" : "#1e2940", textAlign: "center", maxWidth: 70, lineHeight: 1.4 }}>{s.label.toUpperCase()}</span>
                   </div>
-                  <span className="ticker" style={{ fontSize: 8, letterSpacing: "0.04em", color: done ? "#fbbf24" : active ? "rgba(251,191,36,0.5)" : "#1e2940", textAlign: "center", maxWidth: 70, lineHeight: 1.4 }}>{s.label.toUpperCase()}</span>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
 
           {/* Progress bar */}
           <div style={{ height: 2, background: "rgba(255,255,255,0.04)", borderRadius: 1, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{ height: "100%", background: "linear-gradient(90deg,#fbbf24,rgba(251,191,36,0.5))", width: Math.min(((stream.match(/🔎/g) || []).length / 6) * 100, 95) + "%", transition: "width 0.8s ease", boxShadow: "0 0 8px rgba(251,191,36,0.5)" }} />
+            <div style={{ height: "100%", background: "linear-gradient(90deg,#fbbf24,rgba(251,191,36,0.5))", width: (function() {
+              var pct = 5;
+              if (/[🚀🌐]/.test(stream))  pct = 20;
+              if (/🔎/.test(stream))     pct = 40;
+              if (/📄/.test(stream))     pct = 60;
+              if (stream.length > 200 && !/^[🚀🌐🔎📄✅\s]*$/.test(stream)) pct = 80;
+              if (phase === "done")      pct = 100;
+              return pct;
+            })() + "%", transition: "width 0.8s ease", boxShadow: "0 0 8px rgba(251,191,36,0.5)" }} />
           </div>
 
           {/* Terminal */}
