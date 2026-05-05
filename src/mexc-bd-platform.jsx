@@ -1626,6 +1626,55 @@ export default function App() {
             )}
           </div>
         )}
+
+        {page === "pipeline" && (
+          <div className="fade-in">
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid rgba(251,191,36,0.1)" }}>
+              <div>
+                <div className="ticker" style={{ fontSize: 10, color: "#4a5568", letterSpacing: "0.1em", marginBottom: 4 }}>BD PIPELINE</div>
+                <h2 className="sans" style={{ fontSize: 24, fontWeight: 700, color: "#f0f6fc", margin: 0, letterSpacing: "-0.02em" }}>Active Leads</h2>
+              </div>
+              <div className="ticker" style={{ color: "#fbbf24", fontSize: 11 }}>{leads.length} RECORDS</div>
+            </div>
+            {leads.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "80px 0", border: "1px dashed rgba(251,191,36,0.08)", borderRadius: 6 }}>
+                <div className="ticker" style={{ color: "#1e2940", fontSize: 12, marginBottom: 8 }}>NO RECORDS FOUND</div>
+                <p className="sans" style={{ color: "#374151", fontSize: 13, marginBottom: 16 }}>Use Scout AI to research projects and add them to pipeline</p>
+                <button onClick={function(){setPage("scout");}} className="ticker" style={{ padding: "8px 20px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>OPEN SCOUT AI →</button>
+              </div>
+            ) : (
+              <div style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflowX: "auto" }}>
+                <div style={{ minWidth: 700 }}>
+                  <div className="ticker" style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 160px 120px 100px", padding: "9px 16px", background: "rgba(251,191,36,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#374151", fontSize: 9, letterSpacing: "0.08em" }}>
+                    <span>PROJECT</span><span>SYMBOL</span><span>CHAIN</span><span>CATEGORY</span><span>STAGE</span><span style={{ textAlign: "right" }}>ACTION</span>
+                  </div>
+                  {leads.map(function(p, i) {
+                    return (
+                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 160px 120px 100px", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", background: i%2===0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 4, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{p.logo||"🪙"}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="sans" style={{ color: "#f0f6fc", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                            {p.twitter && <div className="ticker" style={{ color: "#4a5568", fontSize: 9 }}>{p.twitter}</div>}
+                          </div>
+                        </div>
+                        <span className="ticker" style={{ color: "#fbbf24", fontSize: 11, whiteSpace: "nowrap" }}>{p.symbol}</span>
+                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.chain||"—"}</span>
+                        <span className="ticker" style={{ color: "#6b7280", fontSize: 10, whiteSpace: "nowrap" }}>{p.category||"—"}</span>
+                        <span className="ticker" style={{ fontSize: 10, color: p.stage==="Listed"?"#10b981":p.stage==="Post-Launch"?"#60a5fa":"#fbbf24", whiteSpace: "nowrap" }}>{(p.stage||"—").toUpperCase()}</span>
+                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                          <button onClick={function(){setContact(p);}} className="ticker" style={{ padding: "4px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", borderRadius: 2, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>SCOUT</button>
+                          <button onClick={function(){removeLead(p.id);}} className="ticker" style={{ padding: "4px 8px", background: "transparent", border: "1px solid rgba(239,68,68,0.15)", color: "#ef4444", borderRadius: 2, cursor: "pointer", fontSize: 9 }}>✕</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {selected && <ProjectModal project={selected} onClose={() => setSelected(null)} onFindContacts={p => { setSelected(null); setContact(p); }} />}
